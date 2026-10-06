@@ -1,0 +1,12 @@
+{
+  "name": "newyear-box-api",
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "newyear-box-db",
+      "database_id": "836b9fd1-0da1-45ab-b749-e087b2c60420"
+    }
+  ]
+}

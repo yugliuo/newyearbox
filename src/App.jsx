@@ -1,15 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import Editor from './Editor.jsx'
+import Auth from './Auth.jsx'
+import { api, getSession, setSession, clearSession } from './api.js'
 
 export default function App() {
   const [page, setPage] = useState('welcome')
+  const [user, setUser] = useState(() => getSession())
 
-  if (page === 'editor') return <Editor />
+  useEffect(() => {
+    const s = getSession()
+    if (!s) return
+    api('/api/me', null, s.token).then((r) => {
+      if (!r.ok && r.data.error !== 'تعذّر الاتصال، تأكد من الإنترنت') {
+        clearSession()
+        setUser(null)
+      }
+    })
+  }, [])
+
+  function onDone(data) {
+    setSession(data)
+    setUser(data)
+    setPage('editor')
+  }
+  function logout() {
+    clearSession()
+    setUser(null)
+  }
+
+  if (page === 'editor' && user) return <Editor />
+  if (page === 'auth') return <Auth onDone={onDone} onBack={() => setPage('welcome')} />
 
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      minHeight: '100dvh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', textAlign: 'center',
       padding: '24px', gap: '16px'
     }}>
@@ -19,8 +44,9 @@ export default function App() {
         اكتب أمنيتك على ورقة، واقفلها في الصندوق،
         وسنفتحه معاً في رأس السنة القادمة!
       </p>
+      {user && <p style={{ opacity: 0.8 }}>مسجّل باسم: {user.username}</p>}
       <button
-        onClick={() => setPage('editor')}
+        onClick={() => setPage(user ? 'editor' : 'auth')}
         style={{
           padding: '14px 36px', fontSize: '18px', fontFamily: 'inherit',
           fontWeight: 700, border: 'none', borderRadius: '30px',
@@ -28,6 +54,11 @@ export default function App() {
         }}>
         ابدأ
       </button>
+      {user && (
+        <button onClick={logout} style={{ background: 'none', border: 'none', color: '#fff', opacity: 0.7, fontFamily: 'inherit', cursor: 'pointer' }}>
+          تسجيل الخروج
+        </button>
+      )}
     </div>
   )
 }
