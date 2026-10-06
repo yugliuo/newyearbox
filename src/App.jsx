@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import Editor from './Editor.jsx'
-import Auth from './Auth.jsx'
+import Auth from './AuthPage.jsx'
 import { api, getSession, setSession, clearSession } from './api.js'
 
 export default function App() {
