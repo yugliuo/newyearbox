@@ -32,7 +32,7 @@ export default function App() {
 
   if (window.location.hash === '#test')
     return <Test />
-  if (page === 'editor' && user) return <Editor />
+  if (page === 'editor' && user) return <Editor user={user} />
   if (page === 'auth') return <Auth onDone={onDone} onBack={() => setPage('welcome')} />
 
   return (

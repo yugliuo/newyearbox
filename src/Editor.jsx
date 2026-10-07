@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { api } from './api.js'
+import { lockText } from './lock.js'
 
 const SHAPES = [['torn', 'قصاصة ممزقة'], ['sticky', 'ملاحظة لاصقة'], ['notebook', 'ورقة دفتر'], ['polaroid', 'بولارويد'], ['old', 'ورقة قديمة']]
 const DECOS = [['none', 'بدون'], ['tape', 'شريط لاصق'], ['stitch', 'خياطة'], ['stars', 'نجوم'], ['wave', 'موجات']]
@@ -8,6 +10,14 @@ const DECO_COLORS = ['#ffb830', '#ff4d6d', '#4cc9f0', '#80ed99', '#b388ff', '#ff
 const FONT_COLORS = ['#222222', '#ffffff', '#b00020', '#0b3d91', '#0a6e31', '#6a1b9a', '#e65100', '#000000', '#795548', '#c2185b']
 const STICKERS = ['⭐️', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊', '🌹', '☕️']
 const INSETS = { torn: '20px 24px', sticky: '20px 20px 44px', notebook: '12px 20px 12px 44px', polaroid: '30px 30px 74px', old: '28px 32px' }
+
+function loadDraft(username) {
+  try {
+    return JSON.parse(localStorage.getItem('draft:' + username)) || {}
+  } catch {
+    return {}
+  }
+}
 
 const rnd = (i) => Math.abs((Math.sin(i * 91.7) * 1000) % 1)
 
@@ -60,24 +70,70 @@ const TABS = [
   ['stickers', '😀', 'ستيكرات'],
 ]
 
-export default function Editor() {
-  const [shape, setShape] = useState('torn')
-  const [paperColor, setPaperColor] = useState('#fff3a0')
-  const [deco, setDeco] = useState('tape')
-  const [decoColor, setDecoColor] = useState('#ff4d6d')
-  const [font, setFont] = useState('Cairo')
-  const [fontColor, setFontColor] = useState('#222222')
-  const [text, setText] = useState('')
-  const [stickers, setStickers] = useState([])
+export default function Editor({ user }) {
+  const [d] = useState(() => loadDraft(user.username))
+  const [shape, setShape] = useState(d.shape || 'torn')
+  const [paperColor, setPaperColor] = useState(d.paperColor || '#fff3a0')
+  const [deco, setDeco] = useState(d.deco || 'tape')
+  const [decoColor, setDecoColor] = useState(d.decoColor || '#ff4d6d')
+  const [font, setFont] = useState(d.font || 'Cairo')
+  const [fontColor, setFontColor] = useState(d.fontColor || '#222222')
+  const [text, setText] = useState(d.text || '')
+  const [stickers, setStickers] = useState(d.stickers || [])
   const [sel, setSel] = useState(null)
   const [tab, setTab] = useState('shape')
   const boxRef = useRef(null)
   const dragging = useRef(false)
-  const nextId = useRef(1)
+  const manual = useRef(false)
+  const [savedSnap, setSavedSnap] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [retry, setRetry] = useState(0)
+
+  const snapshot = JSON.stringify({ shape, paperColor, deco, decoColor, font, fontColor, text, stickers })
+  const empty = !text.trim() && stickers.length === 0
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft:' + user.username, snapshot)
+    } catch {
+      /* ignore */
+    }
+    if (empty || snapshot === savedSnap) return undefined
+    const delay = manual.current ? 0 : 2000
+    manual.current = false
+    const t = setTimeout(async () => {
+      setBusy(true)
+      setErr('')
+      try {
+        const cipher = await lockText(snapshot)
+        const r = await api('/api/wish', { data: cipher }, user.token)
+        if (r.ok) setSavedSnap(snapshot)
+        else setErr(r.data.error || 'تعذّر الحفظ')
+      } catch {
+        setErr('تعذّر القفل، تأكد من الإنترنت')
+      }
+      setBusy(false)
+    }, delay)
+    return () => clearTimeout(t)
+  }, [snapshot, savedSnap, empty, retry, user.username, user.token])
+
+  function saveNow() {
+    manual.current = true
+    setRetry((n) => n + 1)
+  }
+
+  let statusText = '🔓 اكتب أمنيتك وسنحفظها تلقائياً'
+  if (!empty) {
+    if (err) statusText = '⚠️ ' + err
+    else if (savedSnap === snapshot) statusText = '🔒 محفوظ ومقفل حتى رأس السنة'
+    else if (busy) statusText = '⏳ جارٍ القفل والحفظ...'
+    else statusText = '✏️ سيُحفظ بعد ثوانٍ...'
+  }
 
   function addSticker(emoji) {
     if (stickers.length >= 12) return
-    const id = nextId.current++
+    const id = stickers.reduce((m, st) => Math.max(m, st.id), 0) + 1
     setStickers([...stickers, { id, e: emoji, x: 50, y: 50, size: 44 }])
     setSel(id)
   }
@@ -267,6 +323,19 @@ export default function Editor() {
             ⚠️ لون الخط قريب من لون الورقة، قد يصعب قراءته
           </div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
+          <span style={{ fontSize: 13 }}>{statusText}</span>
+          <button
+            onClick={saveNow}
+            disabled={empty || busy}
+            style={{
+              padding: '8px 16px', fontSize: 14, fontFamily: 'inherit', fontWeight: 700, border: 'none',
+              borderRadius: 20, cursor: 'pointer', background: '#ffb830', color: '#000', opacity: empty || busy ? 0.5 : 1,
+            }}
+          >
+            حفظ الآن
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 'none', display: 'flex', overflowX: 'auto', gap: 6, padding: '6px 12px', background: 'rgba(0,0,0,0.25)', WebkitOverflowScrolling: 'touch' }}>

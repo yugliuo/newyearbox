@@ -1,4 +1,6 @@
 const enc = new TextEncoder()
+// رأس السنة 2027 بتوقيت بغداد (UTC+3)، بعده يُغلق الحفظ
+const UNLOCK_AT = Date.UTC(2026, 11, 31, 21, 0, 0)
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -110,6 +112,26 @@ export default {
         const user = await findUser(env, name)
         if (!user) return json({ error: 'سجّل الدخول من جديد' }, 401)
         return json({ username: user.username, avatar: user.avatar })
+      }
+
+      if (path === '/api/wish' && request.method === 'POST') {
+        const name = await readToken(request, env.APP_SECRET)
+        if (!name) return json({ error: 'سجّل الدخول من جديد' }, 401)
+        const user = await findUser(env, name)
+        if (!user) return json({ error: 'سجّل الدخول من جديد' }, 401)
+        if (Date.now() >= UNLOCK_AT) return json({ error: 'أُغلق الصندوق ولم يعد الحفظ ممكناً' }, 403)
+        const b = await body(request)
+        const data = String(b.data || '')
+        if (!data.startsWith('-----BEGIN AGE ENCRYPTED FILE-----')) return json({ error: 'البيانات غير مقفلة' }, 400)
+        if (data.length > 200000) return json({ error: 'الأمنية كبيرة جداً' }, 400)
+        // معرّف الأمنية مشتق من الاسم بدالة لا رجعة فيها، فلا يظهر اسم في جدول الأمنيات
+        const id = 'w_' + (await sign('wish:' + user.username.toLowerCase(), env.APP_SECRET)).slice(0, 32)
+        await env.DB.prepare(
+          'INSERT INTO wishes (id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at'
+        )
+          .bind(id, data, Date.now())
+          .run()
+        return json({ ok: true })
       }
 
       return json({ error: 'غير موجود' }, 404)
