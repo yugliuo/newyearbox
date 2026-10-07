@@ -11,9 +11,9 @@ const FONT_COLORS = ['#222222', '#ffffff', '#b00020', '#0b3d91', '#0a6e31', '#6a
 const STICKERS = ['⭐️', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊', '🌹', '☕️']
 const INSETS = { torn: '20px 24px', sticky: '20px 20px 44px', notebook: '12px 20px 12px 44px', polaroid: '30px 30px 74px', old: '28px 32px' }
 
-function loadDraft(username) {
+function loadDraft(key) {
   try {
-    return JSON.parse(localStorage.getItem('draft:' + username)) || {}
+    return JSON.parse(localStorage.getItem(key)) || {}
   } catch {
     return {}
   }
@@ -70,8 +70,9 @@ const TABS = [
   ['stickers', '😀', 'ستيكرات'],
 ]
 
-export default function Editor({ user }) {
-  const [d] = useState(() => loadDraft(user.username))
+export default function Editor({ user, room, onBack }) {
+  const draftKey = 'draft:' + user.username + ':' + room.code
+  const [d] = useState(() => loadDraft(draftKey))
   const [shape, setShape] = useState(d.shape || 'torn')
   const [paperColor, setPaperColor] = useState(d.paperColor || '#fff3a0')
   const [deco, setDeco] = useState(d.deco || 'tape')
@@ -95,7 +96,7 @@ export default function Editor({ user }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('draft:' + user.username, snapshot)
+      localStorage.setItem(draftKey, snapshot)
     } catch {
       /* ignore */
     }
@@ -107,7 +108,7 @@ export default function Editor({ user }) {
       setErr('')
       try {
         const cipher = await lockText(snapshot)
-        const r = await api('/api/wish', { data: cipher }, user.token)
+        const r = await api('/api/wish', { room: room.code, data: cipher }, user.token)
         if (r.ok) setSavedSnap(snapshot)
         else setErr(r.data.error || 'تعذّر الحفظ')
       } catch {
@@ -116,7 +117,7 @@ export default function Editor({ user }) {
       setBusy(false)
     }, delay)
     return () => clearTimeout(t)
-  }, [snapshot, savedSnap, empty, retry, user.username, user.token])
+  }, [snapshot, savedSnap, empty, retry, draftKey, room.code, user.token])
 
   function saveNow() {
     manual.current = true
@@ -243,11 +244,17 @@ export default function Editor({ user }) {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 'none', padding: '14px 16px 8px' }}>
+      <div style={{ flex: 'none', padding: '10px 16px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <button onClick={onBack} style={{ padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+            → الغرف
+          </button>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>{room.name}</span>
+        </div>
         <div
           ref={boxRef}
           onPointerDown={() => setSel(null)}
-          style={{ position: 'relative', height: 'min(280px, 38dvh)', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.45))' }}
+          style={{ position: 'relative', height: 'min(260px, 34dvh)', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.45))' }}
         >
           <div style={{ position: 'absolute', inset: 0, backgroundColor: paperColor, ...shapeStyles[shape] }} />
 

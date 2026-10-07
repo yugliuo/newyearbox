@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import Editor from './Editor.jsx'
 import Auth from './AuthPage.jsx'
+import Rooms from './Rooms.jsx'
+import Admin from './Admin.jsx'
 import Test from './Test.jsx'
 import { api, getSession, setSession, clearSession } from './api.js'
+
+function readJoinCode() {
+  const c = new URLSearchParams(window.location.search).get('room')
+  return c ? c.toUpperCase() : null
+}
 
 export default function App() {
   const [page, setPage] = useState('welcome')
   const [user, setUser] = useState(() => getSession())
+  const [room, setRoom] = useState(null)
+  const [joinCode, setJoinCode] = useState(() => readJoinCode())
 
   useEffect(() => {
     const s = getSession()
@@ -20,19 +29,37 @@ export default function App() {
     })
   }, [])
 
+  const onJoinHandled = useCallback(() => {
+    setJoinCode(null)
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+  }, [])
+
   function onDone(data) {
     setSession(data)
     setUser(data)
-    setPage('editor')
+    setPage('rooms')
   }
   function logout() {
     clearSession()
     setUser(null)
+    setRoom(null)
+    setPage('welcome')
   }
 
-  if (window.location.hash === '#test')
-    return <Test />
-  if (page === 'editor' && user) return <Editor user={user} />
+  if (window.location.hash === '#admin') return <Admin />
+  if (window.location.hash === '#test') return <Test />
+  if (page === 'editor' && user && room) return <Editor user={user} room={room} onBack={() => setPage('rooms')} />
+  if (page === 'rooms' && user) {
+    return (
+      <Rooms
+        user={user}
+        joinCode={joinCode}
+        onJoinHandled={onJoinHandled}
+        onOpen={(r) => { setRoom(r); setPage('editor') }}
+        onLogout={logout}
+      />
+    )
+  }
   if (page === 'auth') return <Auth onDone={onDone} onBack={() => setPage('welcome')} />
 
   return (
@@ -47,9 +74,10 @@ export default function App() {
         اكتب أمنيتك على ورقة، واقفلها في الصندوق،
         وسنفتحه معاً في رأس السنة القادمة!
       </p>
+      {joinCode && <p style={{ color: '#ffd166' }}>🎟 لديك دعوة للانضمام إلى غرفة</p>}
       {user && <p style={{ opacity: 0.8 }}>مسجّل باسم: {user.username}</p>}
       <button
-        onClick={() => setPage(user ? 'editor' : 'auth')}
+        onClick={() => setPage(user ? 'rooms' : 'auth')}
         style={{
           padding: '14px 36px', fontSize: '18px', fontFamily: 'inherit',
           fontWeight: 700, border: 'none', borderRadius: '30px',
