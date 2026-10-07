@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import Editor from './Editor.jsx'
 import Auth from './AuthPage.jsx'
+import Test from './Test.jsx'
 import { api, getSession, setSession, clearSession } from './api.js'
 
 export default function App() {
@@ -29,6 +30,8 @@ export default function App() {
     setUser(null)
   }
 
+  if (window.location.hash === '#test')
+    return <Test />
   if (page === 'editor' && user) return <Editor />
   if (page === 'auth') return <Auth onDone={onDone} onBack={() => setPage('welcome')} />
 
