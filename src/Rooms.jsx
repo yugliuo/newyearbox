@@ -7,7 +7,7 @@ const btn = (primary) => ({
   borderRadius: 20, cursor: 'pointer', background: primary ? '#ffb830' : 'rgba(255,255,255,0.15)', color: primary ? '#000' : '#fff',
 })
 
-export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onLogout }) {
+export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, onLogout }) {
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
@@ -69,6 +69,14 @@ export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onLogout 
           <button style={btn(true)} onClick={() => onOpen(r)}>ادخل</button>
         </div>
       ))}
+
+      <div style={card}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>📮 رسالة من الماضي</div>
+          <div style={{ fontSize: 13, opacity: 0.8 }}>اختيارية، خاصة بك وحدك، تنفتح في رأس السنة</div>
+        </div>
+        <button style={btn(false)} onClick={onVault}>افتح</button>
+      </div>
 
       <div style={{ ...card, flexDirection: 'column', alignItems: 'stretch' }}>
         <div style={{ fontWeight: 700 }}>الانضمام لغرفة جديدة</div>

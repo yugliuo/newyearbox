@@ -4,6 +4,7 @@ import Editor from './Editor.jsx'
 import Auth from './AuthPage.jsx'
 import Rooms from './Rooms.jsx'
 import Admin from './Admin.jsx'
+import Vault from './Vault.jsx'
 import Test from './Test.jsx'
 import { api, getSession, setSession, clearSession } from './api.js'
 
@@ -49,6 +50,7 @@ export default function App() {
   if (window.location.hash === '#admin') return <Admin />
   if (window.location.hash === '#test') return <Test />
   if (page === 'editor' && user && room) return <Editor user={user} room={room} onBack={() => setPage('rooms')} />
+  if (page === 'vault' && user) return <Vault user={user} onBack={() => setPage('rooms')} />
   if (page === 'rooms' && user) {
     return (
       <Rooms
@@ -56,6 +58,7 @@ export default function App() {
         joinCode={joinCode}
         onJoinHandled={onJoinHandled}
         onOpen={(r) => { setRoom(r); setPage('editor') }}
+        onVault={() => setPage('vault')}
         onLogout={logout}
       />
     )

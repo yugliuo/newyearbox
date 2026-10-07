@@ -214,6 +214,24 @@ export default {
         return json({ rooms: rows })
       }
 
+      if (path === '/api/vault') {
+        if (request.method === 'POST') {
+          if (Date.now() >= UNLOCK_AT) return json({ error: 'أُغلق الصندوق ولم يعد الحفظ ممكناً' }, 403)
+          const b = await body(request)
+          const data = String(b.data || '')
+          if (!data.startsWith('-----BEGIN AGE ENCRYPTED FILE-----')) return json({ error: 'البيانات غير مقفلة' }, 400)
+          if (data.length > 200000) return json({ error: 'الرسالة كبيرة جداً' }, 400)
+          await env.DB.prepare(
+            'INSERT INTO vaults (username, message, updated_at) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET message = excluded.message, updated_at = excluded.updated_at'
+          )
+            .bind(user.username, data, Date.now())
+            .run()
+          return json({ ok: true })
+        }
+        const v = await env.DB.prepare('SELECT message, updated_at FROM vaults WHERE username = ?').bind(user.username).first()
+        return json({ data: v ? v.message : null, updated_at: v ? v.updated_at : null })
+      }
+
       if (path === '/api/join' && request.method === 'POST') {
         const b = await body(request)
         const code = String(b.code || '').trim().toUpperCase()
