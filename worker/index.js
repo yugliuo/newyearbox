@@ -91,7 +91,8 @@ async function adminRoutes(path, request, env) {
     return json({ token: 'admin|' + exp + '|' + (await sign('admin:' + exp, env.APP_SECRET)) })
   }
   if (!(await isAdmin(request, env))) return json({ error: 'غير مصرّح' }, 401)
-    if (path === '/api/admin/overview') {
+
+  if (path === '/api/admin/overview') {
     const users = (
       await DB.prepare(
         'SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms FROM users u ORDER BY u.created_at DESC'
@@ -141,7 +142,7 @@ async function adminRoutes(path, request, env) {
 
   if (path === '/api/admin/unban') {
     const b = await body(request)
-    await DB.prepare('DELETE FROM bans WHERE room = ? AND username = ?').bind(String(b.room  '').toUpperCase(), String(b.username  '')).run()
+    await DB.prepare('DELETE FROM bans WHERE room = ? AND username = ?').bind(String(b.room || '').toUpperCase(), String(b.username || '')).run()
     return json({ ok: true })
   }
 
@@ -168,6 +169,7 @@ async function adminRoutes(path, request, env) {
   }
   return json({ error: 'غير موجود' }, 404)
 }
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
@@ -239,7 +241,8 @@ export default {
           if (!data.startsWith('-----BEGIN AGE ENCRYPTED FILE-----')) return json({ error: 'البيانات غير مقفلة' }, 400)
           if (data.length > 200000) return json({ error: 'الرسالة كبيرة جداً' }, 400)
           await env.DB.prepare(
-            'INSERT INTO vaults (username, message, updated_at) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET message = excluded.message, updated_at = excluded.updated_at')
+            'INSERT INTO vaults (username, message, updated_at) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET message = excluded.message, updated_at = excluded.updated_at'
+          )
             .bind(user.username, data, Date.now())
             .run()
           const draft = b.draft ? String(b.draft) : null
@@ -307,6 +310,7 @@ export default {
         await env.DB.prepare('UPDATE members SET state = ? WHERE room = ? AND username = ?').bind(state, room, user.username).run()
         return json({ ok: true })
       }
+
       if (path === '/api/draft') {
         const code = (new URL(request.url).searchParams.get('room') || '').toUpperCase()
         const row = await env.DB.prepare('SELECT draft, draft_at FROM members WHERE room = ? AND username = ?').bind(code, user.username).first()

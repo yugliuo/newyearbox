@@ -11,6 +11,7 @@ export async function api(path, body, token) {
       body: body ? JSON.stringify(body) : undefined,
     })
     const data = await res.json()
+    if (res.status === 404) data.error = (data.error || 'غير موجود') + ' [' + path.split('?')[0] + ']'
     return { ok: res.ok, data }
   } catch {
     return { ok: false, data: { error: 'تعذّر الاتصال، تأكد من الإنترنت' } }
