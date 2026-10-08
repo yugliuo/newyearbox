@@ -90,7 +90,8 @@ export default function Admin() {
   async function doDelete() {
     const d = confirmDel
     setConfirmDel(null)
-    if (d.type === 'room') await act('/api/admin/delete-room', { code: d.id }, '🗑 حُذفت الغرفة')
+    if (d.type === 'kick') await act('/api/admin/kick', { room: d.room, username: d.id }, '🚫 طُرد ' + d.name + ' من الغرفة')
+    else if (d.type === 'room') await act('/api/admin/delete-room', { code: d.id }, '🗑 حُذفت الغرفة')
     else await act('/api/admin/delete-user', { username: d.id }, '🗑 حُذف المستخدم')
   }
   async function copyLink(code) {
@@ -141,9 +142,13 @@ export default function Admin() {
 
       {confirmDel && (
         <div style={{ ...card, border: '2px solid #e5484d' }}>
-          <div style={{ marginBottom: 10 }}>هل أنت متأكد من حذف «{confirmDel.name}»؟ لا يمكن التراجع.</div>
+          <div style={{ marginBottom: 10 }}>
+            {confirmDel.type === 'kick'
+              ? 'هل تريد طرد «' + confirmDel.name + '» من الغرفة؟ لن يستطيع الدخول إليها مجدداً.'
+              : 'هل أنت متأكد من حذف «' + confirmDel.name + '»؟ لا يمكن التراجع.'}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={btn(true, true)} onClick={doDelete}>نعم، احذف</button>
+            <button style={btn(true, true)} onClick={doDelete}>نعم، نفّذ</button>
             <button style={btn(false)} onClick={() => setConfirmDel(null)}>إلغاء</button>
           </div>
         </div>
@@ -170,11 +175,34 @@ export default function Admin() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {r.members.length === 0 && <span style={{ fontSize: 13, opacity: 0.7 }}>لا أعضاء بعد</span>}
                 {r.members.map((m) => (
-                  <span key={m.username} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '4px 10px', fontSize: 13 }}>
-                    {m.hasWish ? '✅' : '⏳'} {m.username}
+                  <span key={m.username} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '4px 4px 4px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span>{m.hasWish ? '✅' : '⏳'} {m.username}</span>
+                    <button
+                      aria-label={'طرد ' + m.username}
+                      onClick={() => setConfirmDel({ type: 'kick', id: m.username, name: m.username, room: r.code })}
+                      style={{ border: 'none', borderRadius: 10, background: '#e5484d', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      طرد
+                    </button>
                   </span>
                 ))}
               </div>
+              {r.banned && r.banned.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>🚫 المطرودون:</span>
+                  {r.banned.map((u) => (
+                    <span key={u} style={{ background: 'rgba(229,72,77,0.25)', borderRadius: 14, padding: '4px 4px 4px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {u}
+                      <button
+                        onClick={() => act('/api/admin/unban', { room: r.code, username: u }, '✅ أُلغي طرد ' + u)}
+                        style={{ border: 'none', borderRadius: 10, background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        إلغاء
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </>

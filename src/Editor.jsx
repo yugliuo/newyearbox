@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { encryptDraft, decryptDraft } from './crypt.js'
 import { api } from './api.js'
 import { lockText } from './lock.js'
 
@@ -8,8 +9,17 @@ const FONTS = [['Cairo', 'القاهرة'], ['Tajawal', 'تجوّل'], ['Amiri',
 const PAPER_COLORS = ['#ffffff', '#fff3a0', '#ffc8dd', '#bde0fe', '#c7f9cc', '#ffd6a5', '#e0bbff', '#f1e3c8', '#ffb3b3', '#d9d9d9']
 const DECO_COLORS = ['#ffb830', '#ff4d6d', '#4cc9f0', '#80ed99', '#b388ff', '#ffffff', '#ff9f1c', '#2ec4b6', '#f72585', '#222222']
 const FONT_COLORS = ['#222222', '#ffffff', '#b00020', '#0b3d91', '#0a6e31', '#6a1b9a', '#e65100', '#000000', '#795548', '#c2185b']
-const STICKERS = ['⭐️', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊', '🌹', '☕️']
+const STICKERS = ['⭐', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊️', '🌹', '☕']
 const INSETS = { torn: '20px 24px', sticky: '20px 20px 44px', notebook: '12px 20px 12px 44px', polaroid: '30px 30px 74px', old: '28px 32px' }
+
+const nowMs = () => Date.now()
+function readLocal(key) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
 
 function loadDraft(key) {
   try {
@@ -64,13 +74,13 @@ const TABS = [
   ['shape', '📄', 'الشكل'],
   ['paper', '🎨', 'لون الورقة'],
   ['deco', '✨', 'الزخرفة'],
-  ['decoColor', '🖌', 'لون الزخرفة'],
+  ['decoColor', '🖌️', 'لون الزخرفة'],
   ['font', '🔤', 'الخط'],
   ['fontColor', '🅰️', 'لون الخط'],
   ['stickers', '😀', 'ستيكرات'],
 ]
 
-export default function Editor({ user, room, onBack }) {
+export default function Editor({ user, room, onBack, onFinished }) {
   const draftKey = 'draft:' + user.username + ':' + room.code
   const [d] = useState(() => loadDraft(draftKey))
   const [shape, setShape] = useState(d.shape || 'torn')
@@ -85,51 +95,125 @@ export default function Editor({ user, room, onBack }) {
   const [tab, setTab] = useState('shape')
   const boxRef = useRef(null)
   const dragging = useRef(false)
-  const manual = useRef(false)
   const [savedSnap, setSavedSnap] = useState(null)
-  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [retry, setRetry] = useState(0)
+  const [finishing, setFinishing] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const snapshot = JSON.stringify({ shape, paperColor, deco, decoColor, font, fontColor, text, stickers })
   const empty = !text.trim() && stickers.length === 0
+  const tsKey = 'draftT:' + user.username + ':' + room.code
+  const latest = useRef({ snapshot, empty, savedSnap: null })
+  const initialSnap = useRef(null)
+  const saving = useRef(false)
 
   useEffect(() => {
+    latest.current = { snapshot, empty, savedSnap }
+    if (initialSnap.current === null) initialSnap.current = snapshot
     try {
       localStorage.setItem(draftKey, snapshot)
+      if (snapshot !== initialSnap.current) localStorage.setItem(tsKey, String(nowMs()))
     } catch {
       /* ignore */
     }
-    if (empty || snapshot === savedSnap) return undefined
-    const delay = manual.current ? 0 : 2000
-    manual.current = false
-    const t = setTimeout(async () => {
-      setBusy(true)
-      setErr('')
-      try {
-        const cipher = await lockText(snapshot)
-        const r = await api('/api/wish', { room: room.code, data: cipher }, user.token)
-        if (r.ok) setSavedSnap(snapshot)
-        else setErr(r.data.error || 'تعذّر الحفظ')
-      } catch {
-        setErr('تعذّر القفل، تأكد من الإنترنت')
-      }
-      setBusy(false)
-    }, delay)
-    return () => clearTimeout(t)
-  }, [snapshot, savedSnap, empty, retry, draftKey, room.code, user.token])
+  })
 
-  function saveNow() {
-    manual.current = true
-    setRetry((n) => n + 1)
+  const persist = useCallback(async () => {
+    const { snapshot: snap, empty: emp, savedSnap: saved } = latest.current
+    if (emp || snap === saved || saving.current) return
+    saving.current = true
+    setErr('')
+    try {
+      const cipher = await lockText(snap)
+      const draft = user.dk ? await encryptDraft(user.dk, snap) : null
+      const r = await api('/api/wish', { room: room.code, data: cipher, draft, draftAt: nowMs() }, user.token)
+      if (r.ok) setSavedSnap(snap)
+      else setErr(r.data.error || 'تعذّر الحفظ')
+    } catch {
+      setErr('تعذّر القفل، تأكد من الإنترنت')
+    }
+    saving.current = false
+  }, [room.code, user.token, user.dk])
+
+  useEffect(() => {
+    if (empty || snapshot === savedSnap) return undefined
+    const t = setTimeout(persist, 1500)
+    return () => clearTimeout(t)
+  }, [snapshot, savedSnap, empty, persist])
+
+  useEffect(() => {
+    function onHide() {
+      if (document.visibilityState === 'hidden') persist()
+    }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', persist)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', persist)
+    }
+  }, [persist])
+
+  useEffect(() => {
+    if (!user.dk) return undefined
+    let alive = true
+    async function load() {
+      const r = await api('/api/draft?room=' + room.code, null, user.token)
+      if (!alive || !r.ok || !r.data.draft) return
+      if (latest.current.snapshot !== initialSnap.current) return
+      const localT = Number(readLocal(tsKey)) || 0
+      if (!latest.current.empty && r.data.draftAt <= localT) return
+      try {
+        const o = JSON.parse(await decryptDraft(user.dk, r.data.draft))
+        if (!alive) return
+        setShape(o.shape || 'torn')
+        setPaperColor(o.paperColor || '#fff3a0')
+        setDeco(o.deco || 'tape')
+        setDecoColor(o.decoColor || '#ff4d6d')
+        setFont(o.font || 'Cairo')
+        setFontColor(o.fontColor || '#222222')
+        setText(o.text || '')
+        setStickers(o.stickers || [])
+      } catch {
+        /* كلمة السر تغيّرت أو النسخة تالفة: نتجاهلها */
+      }
+    }
+    load()
+    return () => {
+      alive = false
+    }
+  }, [room.code, user.token, user.dk, tsKey])
+
+  async function back() {
+    await persist()
+    onBack()
   }
 
-  let statusText = '🔓 اكتب أمنيتك وسنحفظها تلقائياً'
-  if (!empty) {
-    if (err) statusText = '⚠️ ' + err
-    else if (savedSnap === snapshot) statusText = '🔒 محفوظ ومقفل حتى رأس السنة'
-    else if (busy) statusText = '⏳ جارٍ القفل والحفظ...'
-    else statusText = '✏️ سيُحفظ بعد ثوانٍ...'
+  async function finish() {
+    if (empty || finishing) return
+    setFinishing(true)
+    setErr('')
+    try {
+      const cipher = await lockText(snapshot)
+      const draft = user.dk ? await encryptDraft(user.dk, snapshot) : null
+      const r = await api('/api/wish', { room: room.code, data: cipher, draft, draftAt: nowMs() }, user.token)
+      if (!r.ok) {
+        setErr(r.data.error || 'تعذّر الحفظ')
+        setFinishing(false)
+        return
+      }
+      setSavedSnap(snapshot)
+      const d = await api('/api/card-state', { room: room.code, state: 'done' }, user.token)
+      if (!d.ok) {
+        setErr(d.data.error || 'تعذّر الإنهاء')
+        setFinishing(false)
+        return
+      }
+      setClosing(true)
+      setTimeout(onFinished, 1100)
+    } catch {
+      setErr('تعذّر القفل، تأكد من الإنترنت')
+      setFinishing(false)
+    }
   }
 
   function addSticker(emoji) {
@@ -234,7 +318,7 @@ export default function Editor({ user, room, onBack }) {
                 setSel(null)
               }}
             >
-              حذف 🗑
+              حذف 🗑️
             </button>
           </div>
         )}
@@ -244,9 +328,10 @@ export default function Editor({ user, room, onBack }) {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <style>{'@keyframes foldIn{0%{transform:none;opacity:1}35%{transform:scaleY(.18)}70%{transform:scale(.3,.18) translateY(-20px)}100%{transform:translateY(-140px) scale(.08) rotate(8deg);opacity:0}}'}</style>
       <div style={{ flex: 'none', padding: '10px 16px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <button onClick={onBack} style={{ padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+          <button onClick={back} style={{ padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
             → الغرف
           </button>
           <span style={{ fontWeight: 700, fontSize: 15 }}>{room.name}</span>
@@ -254,7 +339,7 @@ export default function Editor({ user, room, onBack }) {
         <div
           ref={boxRef}
           onPointerDown={() => setSel(null)}
-          style={{ position: 'relative', height: 'min(260px, 34dvh)', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.45))' }}
+          style={{ position: 'relative', height: 'min(250px, 32dvh)', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.45))', animation: closing ? 'foldIn 1.1s ease-in forwards' : 'none' }}
         >
           <div style={{ position: 'absolute', inset: 0, backgroundColor: paperColor, ...shapeStyles[shape] }} />
 
@@ -330,19 +415,17 @@ export default function Editor({ user, room, onBack }) {
             ⚠️ لون الخط قريب من لون الورقة، قد يصعب قراءته
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
-          <span style={{ fontSize: 13 }}>{statusText}</span>
-          <button
-            onClick={saveNow}
-            disabled={empty || busy}
-            style={{
-              padding: '8px 16px', fontSize: 14, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-              borderRadius: 20, cursor: 'pointer', background: '#ffb830', color: '#000', opacity: empty || busy ? 0.5 : 1,
-            }}
-          >
-            حفظ الآن
-          </button>
-        </div>
+        {err && <div style={{ marginTop: 8, fontSize: 12, color: '#ffd166', textAlign: 'center' }}>⚠️ {err}</div>}
+        <button
+          onClick={finish}
+          disabled={empty || finishing}
+          style={{
+            width: '100%', marginTop: 10, padding: 11, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none',
+            borderRadius: 24, cursor: 'pointer', background: '#ffb830', color: '#000', opacity: empty || finishing ? 0.5 : 1,
+          }}
+        >
+          {finishing ? '...' : 'أكملت ✓ ضع بطاقتي في الصندوق'}
+        </button>
       </div>
 
       <div style={{ flex: 'none', display: 'flex', overflowX: 'auto', gap: 6, padding: '6px 12px', background: 'rgba(0,0,0,0.25)', WebkitOverflowScrolling: 'touch' }}>

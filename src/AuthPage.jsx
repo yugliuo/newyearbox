@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from './api.js'
+import { deriveKeyHex } from './crypt.js'
 
 const EMOJIS = ['🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐯', '🐵']
 
@@ -62,9 +63,19 @@ export default function Auth({ onDone, onBack }) {
     const path = mode === 'register' ? '/api/register' : '/api/login'
     const body = mode === 'register' ? { username, password, avatar } : { username, password }
     const r = await api(path, body)
-    setBusy(false)
-    if (r.ok) onDone(r.data)
-    else setMsg(r.data.error || 'حدث خطأ')
+    if (r.ok) {
+      let dk = null
+      try {
+        dk = await deriveKeyHex(password, r.data.username)
+      } catch {
+        /* ignore */
+      }
+      setBusy(false)
+      onDone({ ...r.data, dk })
+    } else {
+      setBusy(false)
+      setMsg(r.data.error || 'حدث خطأ')
+    }
   }
 
   async function forgot() {
