@@ -94,24 +94,26 @@ function tubeGeometry(curve, radiusAt, seg, rad) {
 function makeHand(glove) {
   const hand = new THREE.Group()
   const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), glove)
-  palm.scale.set(0.17, 0.19, 0.12)
+  palm.scale.set(0.21, 0.19, 0.065)
   palm.position.y = 0.18
   hand.add(palm)
   const lens = [0.17, 0.23, 0.21, 0.15]
   ;[-1.5, -0.5, 0.5, 1.5].forEach((k, i) => {
     const pivot = new THREE.Group()
-    pivot.position.set(k * 0.07, 0.3, 0)
-    pivot.rotation.z = -k * 0.14
+    pivot.position.set(k * 0.088, 0.3, 0)
+    pivot.rotation.z = -k * 0.12
     const f = new THREE.Mesh(new THREE.CapsuleGeometry(0.047, lens[i], 8, 16), glove)
     f.position.y = lens[i] / 2 + 0.02
+    f.scale.z = 0.75
     pivot.add(f)
     hand.add(pivot)
   })
   const thumbPivot = new THREE.Group()
-  thumbPivot.position.set(-0.15, 0.13, 0.02)
+  thumbPivot.position.set(-0.19, 0.13, 0.01)
   thumbPivot.rotation.z = 58 * D
   const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.12, 8, 16), glove)
   thumb.position.y = 0.1
+  thumb.scale.z = 0.75
   thumbPivot.add(thumb)
   hand.add(thumbPivot)
   return hand
@@ -133,7 +135,8 @@ export default function Pan3D() {
     el.appendChild(renderer.domElement)
 
     const pmrem = new THREE.PMREMGenerator(renderer)
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = envTex
     scene.environmentIntensity = 0.2
     scene.add(new THREE.HemisphereLight(0x9aa8ff, 0x0a0a14, 0.22))
     const key = new THREE.DirectionalLight(0xffffff, 2.2)
@@ -145,7 +148,7 @@ export default function Pan3D() {
 
     const body = new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide })
     const glove = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.3, metalness: 0.15, side: THREE.DoubleSide })
-    const tealMat = new THREE.MeshBasicMaterial({ color: TEAL, toneMapped: false, side: THREE.DoubleSide })
+    const metal = new THREE.MeshStandardMaterial({ color: 0xe3e7ec, roughness: 0.26, metalness: 1, envMap: envTex, envMapIntensity: 1.5, side: THREE.DoubleSide })
 
     const character = new THREE.Group()
     scene.add(character)
@@ -182,20 +185,6 @@ export default function Pan3D() {
     const radiusAt = (t) => 0.155 - 0.03 * t
     character.add(new THREE.Mesh(tubeGeometry(curve, radiusAt, 80, 24), glove))
 
-    // الخط المضيء على الذراع
-    const Z = new THREE.Vector3(0, 0, 1)
-    const sp = []
-    for (let i = 0; i <= 80; i++) {
-      const c = curve.getPointAt(i / 80)
-      const T = curve.getTangentAt(i / 80).normalize()
-      const front = Z.clone().sub(T.clone().multiplyScalar(Z.dot(T))).normalize()
-      const side = new THREE.Vector3().crossVectors(T, front)
-      if (side.dot(new THREE.Vector3(c.x, c.y, 0)) < 0) side.negate()
-      const dir = front.multiplyScalar(0.95).add(side.multiplyScalar(0.31))
-      sp.push(c.add(dir.multiplyScalar(radiusAt(i / 80) * 0.96)))
-    }
-    character.add(new THREE.Mesh(tubeGeometry(new THREE.CatmullRomCurve3(sp.slice(14, 78)), () => 0.02, 70, 10), tealMat))
-
     // المعصم واليد
     const end = curve.getPointAt(1)
     const tangent = curve.getTangentAt(1).normalize()
@@ -206,9 +195,9 @@ export default function Pan3D() {
     cuff.rotation.x = Math.PI / 2
     cuff.position.y = 0.01
     wrist.add(cuff)
-    const hand = makeHand(glove)
-    hand.scale.setScalar(1.5)
-    hand.position.y = 0.04
+    const hand = makeHand(metal)
+    hand.scale.setScalar(1.2)
+    hand.position.y = -0.05
     wrist.add(hand)
     character.add(wrist)
 

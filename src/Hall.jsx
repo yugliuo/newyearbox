@@ -77,8 +77,10 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
       if (!alive) return
       if (!r.ok) {
         if (r.data.error === 'أنت لست عضواً في هذه الغرفة') setKicked(true)
+        else setMsg('تعذّر تحميل الغرفة: ' + (r.data.error || 'خطأ غير معروف'))
         return
       }
+      setMsg('')
       const d = r.data
       const me = d.members.find((m) => m.username === user.username)
       if (prev.current) {
