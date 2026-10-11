@@ -103,7 +103,7 @@ export default function Auth({ onDone, onBack }) {
         </div>
 
         <input dir="auto" style={input} placeholder="الاسم المستعار" value={username} maxLength={20} onChange={(e) => setUsername(e.target.value)} />
-        <input style={input} type="password" placeholder="كلمة السر" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input style={input} type="password" placeholder={mode === 'register' ? 'كلمة السر (6 أحرف على الأقل)' : 'كلمة السر'} value={password} onChange={(e) => setPassword(e.target.value)} />
 
         {mode === 'register' && (
           <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 14 }}>
@@ -135,6 +135,10 @@ export default function Auth({ onDone, onBack }) {
             نسيت كلمة المرور؟
           </button>
         )}
+
+        <div style={{ fontSize: 12, opacity: 0.6, textAlign: 'center', lineHeight: 1.7 }}>
+          لحماية الغرفة نسجّل وقت الدخول ونوع الجهاز.
+        </div>
       </div>
     </div>
   )

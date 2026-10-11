@@ -2,16 +2,18 @@ const enc = new TextEncoder()
 // رأس السنة 2027 بتوقيت بغداد (UTC+3)، بعده يُغلق الحفظ والانضمام
 const UNLOCK_AT = Date.UTC(2026, 11, 31, 21, 0, 0)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+// المواقع المسموح لها باستعمال السيرفر
+const ORIGINS = ['https://yugliuo.github.io', 'http://localhost:5173', 'http://localhost:4173']
+const FAIL_LIMIT = 5 // محاولات خاطئة لكل اسم قبل القفل المؤقت
+const IP_FAIL_LIMIT = 20 // محاولات خاطئة لكل عنوان قبل القفل المؤقت
+const REGISTER_LIMIT = 30 // حسابات جديدة لكل عنوان في الساعة
+const WINDOW_MS = 15 * 60 * 1000
+const LOG_KEEP_MS = 60 * 24 * 60 * 60 * 1000
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
 function hex(buf) {
@@ -30,18 +32,18 @@ async function sign(value, secret) {
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   return hex(await crypto.subtle.sign('HMAC', key, enc.encode(value)))
 }
-async function makeToken(username, secret) {
+async function makeToken(username, sid, secret) {
   const exp = Date.now() + 1000 * 60 * 60 * 24 * 60
-  const body = encodeURIComponent(username) + '|' + exp
+  const body = encodeURIComponent(username) + '|' + sid + '|' + exp
   return body + '|' + (await sign('token:' + body, secret))
 }
 async function readToken(request, secret) {
   const parts = (request.headers.get('Authorization') || '').replace('Bearer ', '').split('|')
-  if (parts.length !== 3) return null
-  const body = parts[0] + '|' + parts[1]
-  if ((await sign('token:' + body, secret)) !== parts[2]) return null
-  if (Number(parts[1]) < Date.now()) return null
-  return decodeURIComponent(parts[0])
+  if (parts.length !== 4) return null
+  const body = parts[0] + '|' + parts[1] + '|' + parts[2]
+  if ((await sign('token:' + body, secret)) !== parts[3]) return null
+  if (Number(parts[2]) < Date.now()) return null
+  return { username: decodeURIComponent(parts[0]), sid: parts[1] }
 }
 async function isAdmin(request, env) {
   if (!env.ADMIN_PASSWORD) return false
@@ -61,9 +63,72 @@ function newCode() {
 async function findUser(env, username) {
   return env.DB.prepare('SELECT * FROM users WHERE lower(username) = lower(?)').bind(username).first()
 }
+function deviceOf(ua) {
+  const u = ua || ''
+  let os = 'غير معروف'
+  if (/iPhone|iPad|iPod/.test(u)) os = 'iOS'
+  else if (/Android/.test(u)) os = 'Android'
+  else if (/Windows/.test(u)) os = 'Windows'
+  else if (/Mac OS X|Macintosh/.test(u)) os = 'Mac'
+  else if (/Linux/.test(u)) os = 'Linux'
+  let br = 'متصفح'
+  if (/SamsungBrowser/.test(u)) br = 'Samsung'
+  else if (/Edg\//.test(u)) br = 'Edge'
+  else if (/OPR\/|Opera/.test(u)) br = 'Opera'
+  else if (/Firefox|FxiOS/.test(u)) br = 'Firefox'
+  else if (/Chrome|CriOS/.test(u)) br = 'Chrome'
+  else if (/Safari/.test(u)) br = 'Safari'
+  return os + ' · ' + br
+}
+function clientInfo(request) {
+  return {
+    ip: request.headers.get('CF-Connecting-IP') || 'unknown',
+    country: (request.cf && request.cf.country) || '',
+    device: deviceOf(request.headers.get('User-Agent')),
+  }
+}
+async function logEvent(env, request, username, event, ok) {
+  const c = clientInfo(request)
+  const now = Date.now()
+  await env.DB.prepare('INSERT INTO logins (ts, username, event, ok, ip, country, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(now, String(username || '').slice(0, 40), event, ok ? 1 : 0, c.ip, c.country, c.device)
+    .run()
+  if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM logins WHERE ts < ?').bind(now - LOG_KEEP_MS).run()
+}
+// قفل مؤقت بعد محاولات خاطئة كثيرة (للاسم، وللعنوان)
+async function tooManyFailures(env, request, username) {
+  const since = Date.now() - WINDOW_MS
+  const key = String(username || '').toLowerCase().slice(0, 40)
+  const last = await env.DB.prepare("SELECT COALESCE(MAX(ts), 0) AS t FROM logins WHERE lower(username) = ? AND ok = 1 AND event IN ('login', 'admin')").bind(key).first()
+  const from = Math.max(since, last ? last.t : 0)
+  const u = await env.DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE lower(username) = ? AND ok = 0 AND event IN ('login', 'admin') AND ts > ?").bind(key, from).first()
+  if (u.n >= FAIL_LIMIT) return true
+  const ip = clientInfo(request).ip
+  if (ip !== 'unknown') {
+    const i = await env.DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE ip = ? AND ok = 0 AND event IN ('login', 'admin') AND ts > ?").bind(ip, since).first()
+    if (i.n >= IP_FAIL_LIMIT) return true
+  }
+  return false
+}
+async function createSession(env, request, username) {
+  const sid = hex(crypto.getRandomValues(new Uint8Array(12)))
+  const c = clientInfo(request)
+  const now = Date.now()
+  await env.DB.prepare('INSERT INTO sessions (id, username, device, ip, country, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(sid, username, c.device, c.ip, c.country, now, now)
+    .run()
+  return sid
+}
 async function authUser(request, env) {
-  const name = await readToken(request, env.APP_SECRET)
-  return name ? findUser(env, name) : null
+  const t = await readToken(request, env.APP_SECRET)
+  if (!t) return null
+  const s = await env.DB.prepare('SELECT revoked, last_seen FROM sessions WHERE id = ? AND username = ?').bind(t.sid, t.username).first()
+  if (!s || s.revoked) return null
+  const user = await findUser(env, t.username)
+  if (!user || user.disabled) return null
+  const now = Date.now()
+  if (now - (s.last_seen || 0) > 60000) await env.DB.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(now, t.sid).run()
+  return user
 }
 async function body(request) {
   try {
@@ -78,6 +143,7 @@ async function setPassword(env, username, password) {
   await env.DB.prepare('UPDATE users SET pass_hash = ?, salt = ?, reset_requested = 0 WHERE username = ?')
     .bind(passHash, salt, username)
     .run()
+  await env.DB.prepare('UPDATE sessions SET revoked = 1 WHERE username = ?').bind(username).run()
 }
 
 async function adminRoutes(path, request, env) {
@@ -85,7 +151,12 @@ async function adminRoutes(path, request, env) {
   if (path === '/api/admin/login') {
     const b = await body(request)
     if (!env.ADMIN_PASSWORD) return json({ error: 'لم تُضبط كلمة سر المطوّر بعد' }, 500)
+    if (await tooManyFailures(env, request, '[admin]')) {
+      await logEvent(env, request, '[admin]', 'locked', false)
+      return json({ error: 'محاولات خاطئة كثيرة، حاول بعد 15 دقيقة' }, 429)
+    }
     const ok = (await sign('pw', String(b.password || ''))) === (await sign('pw', env.ADMIN_PASSWORD))
+    await logEvent(env, request, '[admin]', 'admin', ok)
     if (!ok) return json({ error: 'كلمة السر خطأ' }, 401)
     const exp = Date.now() + 1000 * 60 * 60 * 12
     return json({ token: 'admin|' + exp + '|' + (await sign('admin:' + exp, env.APP_SECRET)) })
@@ -95,7 +166,7 @@ async function adminRoutes(path, request, env) {
   if (path === '/api/admin/overview') {
     const users = (
       await DB.prepare(
-        'SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms FROM users u ORDER BY u.created_at DESC'
+        "SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.disabled, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms, (SELECT MAX(l.ts) FROM logins l WHERE lower(l.username) = lower(u.username) AND l.ok = 1 AND l.event IN ('login', 'register')) AS last_login, (SELECT COUNT(*) FROM sessions s WHERE s.username = u.username AND s.revoked = 0) AS devices FROM users u ORDER BY u.created_at DESC"
       ).all()
     ).results
     const rooms = (await DB.prepare('SELECT code, name, created_at FROM rooms ORDER BY created_at DESC').all()).results
@@ -119,12 +190,40 @@ async function adminRoutes(path, request, env) {
     return json({ code, name })
   }
 
+  if (path === '/api/admin/security') {
+    const now = Date.now()
+    const events = (await DB.prepare('SELECT ts, username, event, ok, ip, country, device FROM logins ORDER BY ts DESC, id DESC LIMIT 150').all()).results
+    const sessions = (
+      await DB.prepare('SELECT id, username, device, ip, country, created_at, last_seen FROM sessions WHERE revoked = 0 ORDER BY last_seen DESC LIMIT 100').all()
+    ).results
+    const day = now - 24 * 60 * 60 * 1000
+    const failed = (await DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE ok = 0 AND event IN ('login', 'admin') AND ts > ?").bind(day).first()).n
+    const locked = (await DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE event = 'locked' AND ts > ?").bind(day).first()).n
+    return json({ events, sessions, failed, locked })
+  }
+
+  if (path === '/api/admin/revoke') {
+    const b = await body(request)
+    if (b.sid) await DB.prepare('UPDATE sessions SET revoked = 1 WHERE id = ?').bind(String(b.sid)).run()
+    else if (b.username) await DB.prepare('UPDATE sessions SET revoked = 1 WHERE username = ?').bind(String(b.username)).run()
+    return json({ ok: true })
+  }
+
+  if (path === '/api/admin/disable') {
+    const b = await body(request)
+    const user = await findUser(env, String(b.username || ''))
+    if (!user) return json({ error: 'المستخدم غير موجود' }, 404)
+    await DB.prepare('UPDATE users SET disabled = ? WHERE username = ?').bind(b.disabled ? 1 : 0, user.username).run()
+    if (b.disabled) await DB.prepare('UPDATE sessions SET revoked = 1 WHERE username = ?').bind(user.username).run()
+    return json({ ok: true })
+  }
+
   if (path === '/api/admin/reset') {
     const b = await body(request)
     const user = await findUser(env, String(b.username || ''))
     const password = String(b.password || '')
     if (!user) return json({ error: 'المستخدم غير موجود' }, 404)
-    if (password.length < 4) return json({ error: 'كلمة السر قصيرة (4 أحرف على الأقل)' }, 400)
+    if (password.length < 6) return json({ error: 'كلمة السر قصيرة (6 أحرف على الأقل)' }, 400)
     await setPassword(env, user.username, password)
     return json({ ok: true })
   }
@@ -164,15 +263,14 @@ async function adminRoutes(path, request, env) {
     for (const r of rows) await DB.prepare('DELETE FROM wishes WHERE id = ?').bind(await wishId(env, r.room, user.username)).run()
     await DB.prepare('DELETE FROM members WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM vaults WHERE username = ?').bind(user.username).run()
+    await DB.prepare('DELETE FROM sessions WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM users WHERE username = ?').bind(user.username).run()
     return json({ ok: true })
   }
   return json({ error: 'غير موجود' }, 404)
 }
 
-export default {
-  async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
+async function handle(request, env) {
     const path = new URL(request.url).pathname
 
     try {
@@ -186,30 +284,51 @@ export default {
         const password = String(b.password || '')
         const avatar = b.avatar ? String(b.avatar) : null
         if (username.length < 2 || username.length > 20) return json({ error: 'الاسم يجب أن يكون بين 2 و20 حرفاً' }, 400)
-        if (password.length < 4) return json({ error: 'كلمة السر قصيرة (4 أحرف على الأقل)' }, 400)
+        if (password.length < 6) return json({ error: 'كلمة السر قصيرة (6 أحرف على الأقل)' }, 400)
         if (avatar && avatar.length > 60000) return json({ error: 'الصورة كبيرة' }, 400)
+        const ipNow = clientInfo(request).ip
+        if (ipNow !== 'unknown') {
+          const reg = await env.DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE event = 'register' AND ip = ? AND ts > ?").bind(ipNow, Date.now() - 3600000).first()
+          if (reg.n >= REGISTER_LIMIT) return json({ error: 'عدد كبير من الحسابات الجديدة، حاول لاحقاً' }, 429)
+        }
         if (await findUser(env, username)) return json({ error: 'هذا الاسم مستخدم، اختر اسماً آخر' }, 409)
         const salt = hex(crypto.getRandomValues(new Uint8Array(16)))
         const passHash = await hashPassword(password, salt)
         await env.DB.prepare('INSERT INTO users (username, pass_hash, salt, avatar, created_at) VALUES (?, ?, ?, ?, ?)')
           .bind(username, passHash, salt, avatar, Date.now())
           .run()
-        return json({ token: await makeToken(username, env.APP_SECRET), username, avatar })
+        const sid = await createSession(env, request, username)
+        await logEvent(env, request, username, 'register', true)
+        return json({ token: await makeToken(username, sid, env.APP_SECRET), username, avatar })
       }
 
       if (path === '/api/login' && request.method === 'POST') {
         const b = await body(request)
-        const user = await findUser(env, String(b.username || '').trim())
-        if (!user) return json({ error: 'الاسم أو كلمة السر خطأ' }, 401)
-        const h = await hashPassword(String(b.password || ''), user.salt)
-        if (h !== user.pass_hash) return json({ error: 'الاسم أو كلمة السر خطأ' }, 401)
-        return json({ token: await makeToken(user.username, env.APP_SECRET), username: user.username, avatar: user.avatar })
+        const name = String(b.username || '').trim()
+        if (await tooManyFailures(env, request, name)) {
+          await logEvent(env, request, name, 'locked', false)
+          return json({ error: 'محاولات خاطئة كثيرة، حاول بعد 15 دقيقة' }, 429)
+        }
+        const user = await findUser(env, name)
+        const h = await hashPassword(String(b.password || ''), user ? user.salt : 'no-such-user')
+        if (!user || h !== user.pass_hash) {
+          await logEvent(env, request, name, 'login', false)
+          return json({ error: 'الاسم أو كلمة السر خطأ' }, 401)
+        }
+        if (user.disabled) {
+          await logEvent(env, request, user.username, 'login', false)
+          return json({ error: 'الحساب موقوف، تواصل مع المنظّم' }, 403)
+        }
+        const sid = await createSession(env, request, user.username)
+        await logEvent(env, request, user.username, 'login', true)
+        return json({ token: await makeToken(user.username, sid, env.APP_SECRET), username: user.username, avatar: user.avatar })
       }
 
       if (path === '/api/forgot' && request.method === 'POST') {
         const b = await body(request)
         const user = await findUser(env, String(b.username || '').trim())
         if (user) await env.DB.prepare('UPDATE users SET reset_requested = 1 WHERE username = ?').bind(user.username).run()
+        await logEvent(env, request, user ? user.username : String(b.username || '').trim(), 'forgot', !!user)
         return json({ ok: true })
       }
 
@@ -358,5 +477,24 @@ export default {
     } catch {
       return json({ error: 'خطأ في السيرفر' }, 500)
     }
+}
+
+export default {
+  async fetch(request, env) {
+    const origin = request.headers.get('Origin') || ''
+    if (origin && !ORIGINS.includes(origin)) return json({ error: 'غير مسموح' }, 403)
+    const cors = {
+      'Access-Control-Allow-Origin': origin || ORIGINS[0],
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      Vary: 'Origin',
+    }
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+    const res = await handle(request, env)
+    const out = new Response(res.body, res)
+    for (const [k, v] of Object.entries(cors)) out.headers.set(k, v)
+    out.headers.set('X-Content-Type-Options', 'nosniff')
+    out.headers.set('Cache-Control', 'no-store')
+    return out
   },
 }

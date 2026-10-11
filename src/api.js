@@ -11,6 +11,15 @@ export async function api(path, body, token) {
       body: body ? JSON.stringify(body) : undefined,
     })
     const data = await res.json()
+    if (res.status === 401 && token && data.error === 'سجّل الدخول من جديد') {
+      clearSession()
+      try {
+        localStorage.removeItem('nav')
+      } catch {
+        /* ignore */
+      }
+      window.location.reload()
+    }
     if (res.status === 404) data.error = (data.error || 'غير موجود') + ' [' + path.split('?')[0] + ']'
     return { ok: res.ok, data }
   } catch {
