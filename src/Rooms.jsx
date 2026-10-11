@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import Locate from './Locate.jsx'
 
 const card = { background: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }
 const btn = (primary) => ({
@@ -69,6 +70,8 @@ export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, 
           <button style={btn(true)} onClick={() => onOpen(r)}>ادخل</button>
         </div>
       ))}
+
+      <Locate user={user} />
 
       <div style={card}>
         <div style={{ flex: 1 }}>

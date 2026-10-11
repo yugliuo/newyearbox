@@ -84,14 +84,16 @@ function clientInfo(request) {
   return {
     ip: request.headers.get('CF-Connecting-IP') || 'unknown',
     country: (request.cf && request.cf.country) || '',
+    region: (request.cf && request.cf.region) || '',
+    city: (request.cf && request.cf.city) || '',
     device: deviceOf(request.headers.get('User-Agent')),
   }
 }
 async function logEvent(env, request, username, event, ok) {
   const c = clientInfo(request)
   const now = Date.now()
-  await env.DB.prepare('INSERT INTO logins (ts, username, event, ok, ip, country, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(now, String(username || '').slice(0, 40), event, ok ? 1 : 0, c.ip, c.country, c.device)
+  await env.DB.prepare('INSERT INTO logins (ts, username, event, ok, ip, country, region, city, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(now, String(username || '').slice(0, 40), event, ok ? 1 : 0, c.ip, c.country, c.region, c.city, c.device)
     .run()
   if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM logins WHERE ts < ?').bind(now - LOG_KEEP_MS).run()
 }
@@ -114,8 +116,8 @@ async function createSession(env, request, username) {
   const sid = hex(crypto.getRandomValues(new Uint8Array(12)))
   const c = clientInfo(request)
   const now = Date.now()
-  await env.DB.prepare('INSERT INTO sessions (id, username, device, ip, country, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(sid, username, c.device, c.ip, c.country, now, now)
+  await env.DB.prepare('INSERT INTO sessions (id, username, device, ip, country, region, city, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(sid, username, c.device, c.ip, c.country, c.region, c.city, now, now)
     .run()
   return sid
 }
@@ -166,7 +168,7 @@ async function adminRoutes(path, request, env) {
   if (path === '/api/admin/overview') {
     const users = (
       await DB.prepare(
-        "SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.disabled, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms, (SELECT MAX(l.ts) FROM logins l WHERE lower(l.username) = lower(u.username) AND l.ok = 1 AND l.event IN ('login', 'register')) AS last_login, (SELECT COUNT(*) FROM sessions s WHERE s.username = u.username AND s.revoked = 0) AS devices FROM users u ORDER BY u.created_at DESC"
+        "SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.disabled, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms, (SELECT MAX(l.ts) FROM logins l WHERE lower(l.username) = lower(u.username) AND l.ok = 1 AND l.event IN ('login', 'register')) AS last_login, (SELECT COUNT(*) FROM sessions s WHERE s.username = u.username AND s.revoked = 0) AS devices, loc.lat AS lat, loc.lng AS lng, loc.place AS place, loc.updated_at AS loc_at FROM users u LEFT JOIN locations loc ON loc.username = u.username ORDER BY u.created_at DESC"
       ).all()
     ).results
     const rooms = (await DB.prepare('SELECT code, name, created_at FROM rooms ORDER BY created_at DESC').all()).results
@@ -192,9 +194,9 @@ async function adminRoutes(path, request, env) {
 
   if (path === '/api/admin/security') {
     const now = Date.now()
-    const events = (await DB.prepare('SELECT ts, username, event, ok, ip, country, device FROM logins ORDER BY ts DESC, id DESC LIMIT 150').all()).results
+    const events = (await DB.prepare('SELECT ts, username, event, ok, ip, country, region, city, device FROM logins ORDER BY ts DESC, id DESC LIMIT 150').all()).results
     const sessions = (
-      await DB.prepare('SELECT id, username, device, ip, country, created_at, last_seen FROM sessions WHERE revoked = 0 ORDER BY last_seen DESC LIMIT 100').all()
+      await DB.prepare('SELECT id, username, device, ip, country, region, city, created_at, last_seen FROM sessions WHERE revoked = 0 ORDER BY last_seen DESC LIMIT 100').all()
     ).results
     const day = now - 24 * 60 * 60 * 1000
     const failed = (await DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE ok = 0 AND event IN ('login', 'admin') AND ts > ?").bind(day).first()).n
@@ -264,6 +266,7 @@ async function adminRoutes(path, request, env) {
     await DB.prepare('DELETE FROM members WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM vaults WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM sessions WHERE username = ?').bind(user.username).run()
+    await DB.prepare('DELETE FROM locations WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM users WHERE username = ?').bind(user.username).run()
     return json({ ok: true })
   }
@@ -434,6 +437,30 @@ async function handle(request, env) {
         const code = (new URL(request.url).searchParams.get('room') || '').toUpperCase()
         const row = await env.DB.prepare('SELECT draft, draft_at FROM members WHERE room = ? AND username = ?').bind(code, user.username).first()
         return json({ draft: row ? row.draft : null, draftAt: row ? row.draft_at : 0 })
+      }
+
+      if (path === '/api/location') {
+        if (request.method === 'POST') {
+          const b = await body(request)
+          if (b.clear) {
+            await env.DB.prepare('DELETE FROM locations WHERE username = ?').bind(user.username).run()
+            return json({ ok: true })
+          }
+          const lat = Number(b.lat)
+          const lng = Number(b.lng)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return json({ error: 'الموقع غير صحيح' }, 400)
+          const round = (x) => Math.round(x * 1000) / 1000 // دقة تقريبية (حوالي 100 متر) وليس العنوان بالضبط
+          const place = String(b.place || '').slice(0, 120)
+          const acc = Number.isFinite(Number(b.acc)) ? Math.round(Number(b.acc)) : null
+          await env.DB.prepare(
+            'INSERT INTO locations (username, lat, lng, accuracy, place, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, accuracy = excluded.accuracy, place = excluded.place, updated_at = excluded.updated_at'
+          )
+            .bind(user.username, round(lat), round(lng), acc, place, Date.now())
+            .run()
+          return json({ ok: true, place })
+        }
+        const row = await env.DB.prepare('SELECT place, updated_at FROM locations WHERE username = ?').bind(user.username).first()
+        return json({ has: !!row, place: row ? row.place : '', updatedAt: row ? row.updated_at : 0 })
       }
 
       if (path === '/api/join' && request.method === 'POST') {
