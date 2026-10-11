@@ -135,10 +135,6 @@ export default function Auth({ onDone, onBack }) {
             نسيت كلمة المرور؟
           </button>
         )}
-
-        <div style={{ fontSize: 12, opacity: 0.6, textAlign: 'center', lineHeight: 1.7 }}>
-          لحماية الغرفة نسجّل وقت الدخول ونوع الجهاز.
-        </div>
       </div>
     </div>
   )
