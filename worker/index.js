@@ -60,6 +60,22 @@ function newCode() {
   const a = crypto.getRandomValues(new Uint8Array(6))
   return [...a].map((b) => CODE_CHARS[b % CODE_CHARS.length]).join('')
 }
+async function roomOwner(env, code) {
+  const r = await env.DB.prepare('SELECT created_by FROM rooms WHERE code = ?').bind(code).first()
+  return r ? r.created_by : null
+}
+async function kickFromRoom(env, code, username) {
+  await env.DB.prepare('DELETE FROM wishes WHERE id = ?').bind(await wishId(env, code, username)).run()
+  await env.DB.prepare('DELETE FROM members WHERE room = ? AND username = ?').bind(code, username).run()
+  await env.DB.prepare('INSERT OR IGNORE INTO bans (room, username) VALUES (?, ?)').bind(code, username).run()
+}
+async function deleteRoomFully(DB, code) {
+  await DB.prepare('DELETE FROM wishes WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM members WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM bans WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM rooms WHERE code = ?').bind(code).run()
+}
+
 async function findUser(env, username) {
   return env.DB.prepare('SELECT * FROM users WHERE lower(username) = lower(?)').bind(username).first()
 }
@@ -84,16 +100,14 @@ function clientInfo(request) {
   return {
     ip: request.headers.get('CF-Connecting-IP') || 'unknown',
     country: (request.cf && request.cf.country) || '',
-    region: (request.cf && request.cf.region) || '',
-    city: (request.cf && request.cf.city) || '',
     device: deviceOf(request.headers.get('User-Agent')),
   }
 }
 async function logEvent(env, request, username, event, ok) {
   const c = clientInfo(request)
   const now = Date.now()
-  await env.DB.prepare('INSERT INTO logins (ts, username, event, ok, ip, country, region, city, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(now, String(username || '').slice(0, 40), event, ok ? 1 : 0, c.ip, c.country, c.region, c.city, c.device)
+  await env.DB.prepare('INSERT INTO logins (ts, username, event, ok, ip, country, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(now, String(username || '').slice(0, 40), event, ok ? 1 : 0, c.ip, c.country, c.device)
     .run()
   if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM logins WHERE ts < ?').bind(now - LOG_KEEP_MS).run()
 }
@@ -116,8 +130,8 @@ async function createSession(env, request, username) {
   const sid = hex(crypto.getRandomValues(new Uint8Array(12)))
   const c = clientInfo(request)
   const now = Date.now()
-  await env.DB.prepare('INSERT INTO sessions (id, username, device, ip, country, region, city, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(sid, username, c.device, c.ip, c.country, c.region, c.city, now, now)
+  await env.DB.prepare('INSERT INTO sessions (id, username, device, ip, country, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(sid, username, c.device, c.ip, c.country, now, now)
     .run()
   return sid
 }
@@ -168,10 +182,10 @@ async function adminRoutes(path, request, env) {
   if (path === '/api/admin/overview') {
     const users = (
       await DB.prepare(
-        "SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.disabled, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms, (SELECT MAX(l.ts) FROM logins l WHERE lower(l.username) = lower(u.username) AND l.ok = 1 AND l.event IN ('login', 'register')) AS last_login, (SELECT COUNT(*) FROM sessions s WHERE s.username = u.username AND s.revoked = 0) AS devices, loc.lat AS lat, loc.lng AS lng, loc.place AS place, loc.updated_at AS loc_at FROM users u LEFT JOIN locations loc ON loc.username = u.username ORDER BY u.created_at DESC"
+        "SELECT u.username, u.avatar IS NOT NULL AS has_avatar, u.reset_requested, u.disabled, u.created_at, (SELECT COUNT(*) FROM members m WHERE m.username = u.username) AS rooms, (SELECT MAX(l.ts) FROM logins l WHERE lower(l.username) = lower(u.username) AND l.ok = 1 AND l.event IN ('login', 'register')) AS last_login, (SELECT COUNT(*) FROM sessions s WHERE s.username = u.username AND s.revoked = 0) AS devices FROM users u ORDER BY u.created_at DESC"
       ).all()
     ).results
-    const rooms = (await DB.prepare('SELECT code, name, created_at FROM rooms ORDER BY created_at DESC').all()).results
+    const rooms = (await DB.prepare('SELECT code, name, created_by, created_at FROM rooms ORDER BY created_at DESC').all()).results
     for (const r of rooms) {
       const members = (await DB.prepare('SELECT username FROM members WHERE room = ? ORDER BY joined_at').bind(r.code).all()).results
       const ids = new Set((await DB.prepare('SELECT id FROM wishes WHERE room = ?').bind(r.code).all()).results.map((x) => x.id))
@@ -188,15 +202,15 @@ async function adminRoutes(path, request, env) {
     const name = String(b.name || '').trim()
     if (name.length < 1 || name.length > 40) return json({ error: 'اسم الغرفة بين 1 و40 حرفاً' }, 400)
     const code = newCode()
-    await DB.prepare('INSERT INTO rooms (code, name, created_at) VALUES (?, ?, ?)').bind(code, name, Date.now()).run()
+    await DB.prepare('INSERT INTO rooms (code, name, created_by, created_at) VALUES (?, ?, ?, ?)').bind(code, name, '[المطوّر]', Date.now()).run()
     return json({ code, name })
   }
 
   if (path === '/api/admin/security') {
     const now = Date.now()
-    const events = (await DB.prepare('SELECT ts, username, event, ok, ip, country, region, city, device FROM logins ORDER BY ts DESC, id DESC LIMIT 150').all()).results
+    const events = (await DB.prepare('SELECT ts, username, event, ok, ip, country, device FROM logins ORDER BY ts DESC, id DESC LIMIT 150').all()).results
     const sessions = (
-      await DB.prepare('SELECT id, username, device, ip, country, region, city, created_at, last_seen FROM sessions WHERE revoked = 0 ORDER BY last_seen DESC LIMIT 100').all()
+      await DB.prepare('SELECT id, username, device, ip, country, created_at, last_seen FROM sessions WHERE revoked = 0 ORDER BY last_seen DESC LIMIT 100').all()
     ).results
     const day = now - 24 * 60 * 60 * 1000
     const failed = (await DB.prepare("SELECT COUNT(*) AS n FROM logins WHERE ok = 0 AND event IN ('login', 'admin') AND ts > ?").bind(day).first()).n
@@ -235,9 +249,7 @@ async function adminRoutes(path, request, env) {
     const code = String(b.room || '').toUpperCase()
     const user = await findUser(env, String(b.username || ''))
     if (!user) return json({ error: 'المستخدم غير موجود' }, 404)
-    await DB.prepare('DELETE FROM wishes WHERE id = ?').bind(await wishId(env, code, user.username)).run()
-    await DB.prepare('DELETE FROM members WHERE room = ? AND username = ?').bind(code, user.username).run()
-    await DB.prepare('INSERT OR IGNORE INTO bans (room, username) VALUES (?, ?)').bind(code, user.username).run()
+    await kickFromRoom(env, code, user.username)
     return json({ ok: true })
   }
 
@@ -249,11 +261,7 @@ async function adminRoutes(path, request, env) {
 
   if (path === '/api/admin/delete-room') {
     const b = await body(request)
-    const code = String(b.code || '')
-    await DB.prepare('DELETE FROM wishes WHERE room = ?').bind(code).run()
-    await DB.prepare('DELETE FROM members WHERE room = ?').bind(code).run()
-    await DB.prepare('DELETE FROM bans WHERE room = ?').bind(code).run()
-    await DB.prepare('DELETE FROM rooms WHERE code = ?').bind(code).run()
+    await deleteRoomFully(DB, String(b.code || ''))
     return json({ ok: true })
   }
 
@@ -266,7 +274,6 @@ async function adminRoutes(path, request, env) {
     await DB.prepare('DELETE FROM members WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM vaults WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM sessions WHERE username = ?').bind(user.username).run()
-    await DB.prepare('DELETE FROM locations WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM users WHERE username = ?').bind(user.username).run()
     return json({ ok: true })
   }
@@ -343,7 +350,7 @@ async function handle(request, env) {
       if (path === '/api/rooms') {
         const rows = (
           await env.DB.prepare(
-            'SELECT r.code, r.name, (SELECT COUNT(*) FROM members WHERE room = r.code) AS members FROM members m JOIN rooms r ON r.code = m.room WHERE m.username = ? ORDER BY m.joined_at'
+            'SELECT r.code, r.name, r.created_by, (SELECT COUNT(*) FROM members WHERE room = r.code) AS members FROM members m JOIN rooms r ON r.code = m.room WHERE m.username = ? ORDER BY m.joined_at'
           )
             .bind(user.username)
             .all()
@@ -351,6 +358,7 @@ async function handle(request, env) {
         for (const r of rows) {
           const w = await env.DB.prepare('SELECT 1 AS x FROM wishes WHERE id = ?').bind(await wishId(env, r.code, user.username)).first()
           r.hasWish = !!w
+          r.isOwner = r.created_by === user.username
         }
         return json({ rooms: rows })
       }
@@ -385,7 +393,8 @@ async function handle(request, env) {
         if (!mem) return json({ error: 'أنت لست عضواً في هذه الغرفة' }, 403)
         const now = Date.now()
         await env.DB.prepare('UPDATE members SET last_seen = ? WHERE room = ? AND username = ?').bind(now, code, user.username).run()
-        const room = await env.DB.prepare('SELECT code, name FROM rooms WHERE code = ?').bind(code).first()
+        const room = await env.DB.prepare('SELECT code, name, created_by FROM rooms WHERE code = ?').bind(code).first()
+        if (room) room.isOwner = room.created_by === user.username
         const rows = (
           await env.DB.prepare(
             "SELECT m.username, m.state, m.last_seen, CASE WHEN u.avatar LIKE 'data:%' THEN NULL ELSE u.avatar END AS emoji, (u.avatar LIKE 'data:%') AS has_img FROM members m JOIN users u ON u.username = m.username WHERE m.room = ? ORDER BY m.joined_at"
@@ -439,28 +448,51 @@ async function handle(request, env) {
         return json({ draft: row ? row.draft : null, draftAt: row ? row.draft_at : 0 })
       }
 
-      if (path === '/api/location') {
-        if (request.method === 'POST') {
-          const b = await body(request)
-          if (b.clear) {
-            await env.DB.prepare('DELETE FROM locations WHERE username = ?').bind(user.username).run()
-            return json({ ok: true })
-          }
-          const lat = Number(b.lat)
-          const lng = Number(b.lng)
-          if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return json({ error: 'الموقع غير صحيح' }, 400)
-          const round = (x) => Math.round(x * 1000) / 1000 // دقة تقريبية (حوالي 100 متر) وليس العنوان بالضبط
-          const place = String(b.place || '').slice(0, 120)
-          const acc = Number.isFinite(Number(b.acc)) ? Math.round(Number(b.acc)) : null
-          await env.DB.prepare(
-            'INSERT INTO locations (username, lat, lng, accuracy, place, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, accuracy = excluded.accuracy, place = excluded.place, updated_at = excluded.updated_at'
-          )
-            .bind(user.username, round(lat), round(lng), acc, place, Date.now())
-            .run()
-          return json({ ok: true, place })
-        }
-        const row = await env.DB.prepare('SELECT place, updated_at FROM locations WHERE username = ?').bind(user.username).first()
-        return json({ has: !!row, place: row ? row.place : '', updatedAt: row ? row.updated_at : 0 })
+      if (path === '/api/create-room' && request.method === 'POST') {
+        const b = await body(request)
+        const name = String(b.name || '').trim()
+        if (name.length < 1 || name.length > 40) return json({ error: 'اسم الغرفة بين 1 و40 حرفاً' }, 400)
+        if (Date.now() >= UNLOCK_AT) return json({ error: 'أُغلق الصندوق ولم يعد إنشاء الغرف ممكناً' }, 403)
+        const code = newCode()
+        await env.DB.prepare('INSERT INTO rooms (code, name, created_by, created_at) VALUES (?, ?, ?, ?)')
+          .bind(code, name, user.username, Date.now())
+          .run()
+        await env.DB.prepare('INSERT INTO members (room, username, joined_at) VALUES (?, ?, ?)').bind(code, user.username, Date.now()).run()
+        return json({ code, name })
+      }
+
+      if (path === '/api/room/members') {
+        const code = (new URL(request.url).searchParams.get('room') || '').toUpperCase()
+        if ((await roomOwner(env, code)) !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        const members = (await env.DB.prepare('SELECT username FROM members WHERE room = ? ORDER BY joined_at').bind(code).all()).results.map((x) => x.username)
+        const banned = (await env.DB.prepare('SELECT username FROM bans WHERE room = ?').bind(code).all()).results.map((x) => x.username)
+        return json({ members, banned })
+      }
+
+      if (path === '/api/room/kick' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        if ((await roomOwner(env, code)) !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        const target = String(b.username || '')
+        if (target === user.username) return json({ error: 'لا يمكنك طرد نفسك، احذف الغرفة بدلاً من ذلك' }, 400)
+        await kickFromRoom(env, code, target)
+        return json({ ok: true })
+      }
+
+      if (path === '/api/room/unban' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        if ((await roomOwner(env, code)) !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        await env.DB.prepare('DELETE FROM bans WHERE room = ? AND username = ?').bind(code, String(b.username || '')).run()
+        return json({ ok: true })
+      }
+
+      if (path === '/api/room/delete' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        if ((await roomOwner(env, code)) !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        await deleteRoomFully(env.DB, code)
+        return json({ ok: true })
       }
 
       if (path === '/api/join' && request.method === 'POST') {

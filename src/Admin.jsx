@@ -27,10 +27,6 @@ function ago(ts) {
   if (s < 86400) return 'قبل ' + Math.floor(s / 3600) + ' ساعة'
   return 'قبل ' + Math.floor(s / 86400) + ' يوم'
 }
-function geo(x) {
-  const where = x.city || x.region
-  return [x.country, where && where !== x.country ? where : ''].filter(Boolean).join(' · ') || '؟'
-}
 function when(ts) {
   return new Date(ts).toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad', hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
@@ -193,6 +189,7 @@ export default function Admin() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 17 }}>{r.name}</div>
                   <div style={{ fontSize: 13, opacity: 0.8 }}>الكود: <b dir="ltr">{r.code}</b> · {r.members.length} أعضاء · {r.wishes} أمنيات</div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>{r.created_by === '[المطوّر]' ? '👑 أنشأتها أنت' : '👤 أنشأها: ' + r.created_by}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -244,16 +241,6 @@ export default function Admin() {
                 {u.rooms} غرف · {u.devices} جهاز · آخر دخول: {ago(u.last_login)}
                 {u.reset_requested ? ' · طلب إعادة كلمة السر' : ''}
               </div>
-              <div style={{ fontSize: 12, marginTop: 2, opacity: 0.9 }}>
-                {u.lat !== null && u.lat !== undefined ? (
-                  <>
-                    📍 {u.place || 'موقع بلا اسم'} ·{' '}
-                    <a href={'https://www.google.com/maps?q=' + u.lat + ',' + u.lng} target="_blank" rel="noreferrer" style={{ color: '#ffb830' }}>الخريطة</a>
-                  </>
-                ) : (
-                  '📍 لم يشارك موقعه'
-                )}
-              </div>
             </div>
             <button style={btn(!!u.reset_requested)} onClick={() => { setResetFor(resetFor === u.username ? null : u.username); setNewPass('') }}>كلمة سر</button>
           </div>
@@ -300,7 +287,7 @@ export default function Admin() {
               <div style={{ flex: 1, fontSize: 13, lineHeight: 1.8 }}>
                 <b>{x.username}</b> · {x.device}
                 <br />
-                <span style={{ opacity: 0.75 }}>{geo(x)} · <span dir="ltr">{x.ip}</span> · آخر نشاط {ago(x.last_seen)}</span>
+                <span style={{ opacity: 0.75 }}>{x.country || '؟'} · <span dir="ltr">{x.ip}</span> · آخر نشاط {ago(x.last_seen)}</span>
               </div>
               <button style={btn(false, true)} onClick={() => act('/api/admin/revoke', { sid: x.id }, '🔒 أُخرج الجهاز')}>إخراج</button>
             </div>
@@ -314,7 +301,7 @@ export default function Admin() {
             >
               <b>{EVENT[e.event] || e.event}</b> · {e.username || '؟'} · {e.ok ? '✓ نجح' : '✗ فشل'}
               <br />
-              <span style={{ opacity: 0.75 }}>{when(e.ts)} · {e.device} · {geo(e)} · <span dir="ltr">{e.ip}</span></span>
+              <span style={{ opacity: 0.75 }}>{when(e.ts)} · {e.device} · {e.country || '؟'} · <span dir="ltr">{e.ip}</span></span>
             </div>
           ))}
         </>

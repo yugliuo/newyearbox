@@ -53,6 +53,9 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [kicked, setKicked] = useState(false)
+  const [manage, setManage] = useState(false)
+  const [roomMembers, setRoomMembers] = useState(null)
+  const [confirmDeleteRoom, setConfirmDeleteRoom] = useState(false)
   const [dims] = useState(() => {
     const W = Math.min(window.innerWidth, 440) - 32
     return { W, H: Math.max(320, Math.min(480, window.innerHeight - 250)) }
@@ -137,6 +140,31 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
     }
   }
 
+  async function loadManage() {
+    const r = await api('/api/room/members?room=' + room.code, null, user.token)
+    if (r.ok) setRoomMembers(r.data)
+  }
+  function toggleManage() {
+    const next = !manage
+    setManage(next)
+    if (next) loadManage()
+  }
+  async function kickFrom(username) {
+    const r = await api('/api/room/kick', { room: room.code, username }, user.token)
+    if (r.ok) loadManage()
+    else setMsg(r.data.error)
+  }
+  async function unbanFrom(username) {
+    const r = await api('/api/room/unban', { room: room.code, username }, user.token)
+    if (r.ok) loadManage()
+    else setMsg(r.data.error)
+  }
+  async function deleteRoom() {
+    const r = await api('/api/room/delete', { room: room.code }, user.token)
+    if (r.ok) onBack()
+    else setMsg(r.data.error)
+  }
+
   async function takeBack() {
     const w = await api('/api/card-state', { room: room.code, state: 'writing' }, user.token)
     if (w.ok) onEdit()
@@ -164,7 +192,59 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button onClick={onBack} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>→ غرفي</button>
         <span style={{ fontWeight: 700, fontSize: 17 }}>{room.name}</span>
+        {room.isOwner && (
+          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#ffb830' : 'rgba(255,255,255,0.18)', color: manage ? '#000' : '#fff', marginRight: 'auto' }}>
+            ⚙️ إدارة الغرفة
+          </button>
+        )}
       </div>
+
+      {manage && (
+        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 14, padding: 10, fontSize: 14 }}>
+          {!roomMembers && <div style={{ opacity: 0.8 }}>جارٍ التحميل...</div>}
+          {roomMembers && (
+            <>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>الأعضاء</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {roomMembers.members.filter((m) => m !== user.username).length === 0 && (
+                  <span style={{ opacity: 0.7 }}>لا أعضاء غيرك بعد</span>
+                )}
+                {roomMembers.members.filter((m) => m !== user.username).map((m) => (
+                  <span key={m} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '4px 4px 4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {m}
+                    <button onClick={() => kickFrom(m)} style={{ border: 'none', borderRadius: 10, background: '#e5484d', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>طرد</button>
+                  </span>
+                ))}
+              </div>
+              {roomMembers.banned.length > 0 && (
+                <>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>🚫 المطرودون</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {roomMembers.banned.map((m) => (
+                      <span key={m} style={{ background: 'rgba(229,72,77,0.25)', borderRadius: 14, padding: '4px 4px 4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {m}
+                        <button onClick={() => unbanFrom(m)} style={{ border: 'none', borderRadius: 10, background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>إلغاء</button>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+              {!confirmDeleteRoom ? (
+                <button onClick={() => setConfirmDeleteRoom(true)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#e5484d', color: '#fff' }}>
+                  🗑️ حذف الغرفة نهائياً
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>متأكد؟ لا يمكن التراجع.</span>
+                  <button onClick={deleteRoom} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#e5484d', color: '#fff' }}>نعم، احذف</button>
+                  <button onClick={() => setConfirmDeleteRoom(false)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>إلغاء</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <div style={{ textAlign: 'center', fontSize: 14, opacity: 0.85 }}>
         {left > 0 ? '🔒 تنفتح الأمنيات بعد ' + fmt(left) : '🎉 انفتح الصندوق'}
       </div>
