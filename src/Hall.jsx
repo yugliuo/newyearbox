@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { UNLOCK_AT } from './lock.js'
+import Game from './Game.jsx'
 
 const TINTS = [['--bg-accent', '--text-accent'], ['--bg-success', '--text-success'], ['--bg-warning', '--text-warning'], ['--bg-pro', '--text-pro'], ['--bg-danger', '--text-danger']]
 const CSS = `
@@ -184,6 +185,10 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         <button style={{ ...smallBtn, background: '#ffb830', color: '#000' }} onClick={onBack}>العودة إلى غرفي</button>
       </div>
     )
+  }
+
+  if (data && left <= 0) {
+    return <Game user={user} room={room} isOwner={!!data.room && data.room.isOwner} onBack={onBack} />
   }
 
   return (

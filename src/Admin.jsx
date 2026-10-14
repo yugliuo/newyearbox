@@ -227,6 +227,12 @@ export default function Admin() {
                   ))}
                 </div>
               )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                <span style={{ fontSize: 12, opacity: 0.8, alignSelf: 'center' }}>🎮 اللعبة:</span>
+                <button style={btn(true)} onClick={() => act('/api/admin/game', { room: r.code, action: 'start' }, '▶️ بدأت اللعبة في ' + r.name)}>ابدأ</button>
+                <button style={btn(false)} onClick={() => act('/api/admin/game', { room: r.code, action: 'skip' }, '⏭️ تخطّينا الجولة')}>تخطّي</button>
+                <button style={btn(false, true)} onClick={() => act('/api/admin/game', { room: r.code, action: 'reset' }, '🔄 أُعيدت اللعبة من البداية')}>إعادة</button>
+              </div>
             </div>
           ))}
         </>

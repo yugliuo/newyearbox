@@ -1,6 +1,8 @@
 const enc = new TextEncoder()
 // رأس السنة 2027 بتوقيت بغداد (UTC+3)، بعده يُغلق الحفظ والانضمام
 const UNLOCK_AT = Date.UTC(2026, 11, 31, 21, 0, 0)
+const GUESS_MS = 10000 // مدة التخمين لكل أمنية
+const REVEAL_MS = 6000 // مدة عرض الاسم الحقيقي قبل الانتقال للتالي
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 // المواقع المسموح لها باستعمال السيرفر
 const ORIGINS = ['https://yugliuo.github.io', 'http://localhost:5173', 'http://localhost:4173']
@@ -56,6 +58,88 @@ async function isAdmin(request, env) {
 async function wishId(env, room, username) {
   return 'w_' + (await sign('wish:' + room + ':' + username.toLowerCase(), env.APP_SECRET)).slice(0, 32)
 }
+
+// يبني قائمة الأعضاء الذين كتبوا أمنية فعلاً (نكشف أصحابها، لا من لم يكتب)
+async function wishedMembers(env, room) {
+  const members = (await env.DB.prepare('SELECT username FROM members WHERE room = ? ORDER BY joined_at').bind(room).all()).results.map((x) => x.username)
+  const out = []
+  for (const u of members) {
+    const w = await env.DB.prepare('SELECT 1 AS x FROM wishes WHERE id = ?').bind(await wishId(env, room, u)).first()
+    if (w) out.push(u)
+  }
+  return out
+}
+function shuffle(arr, seedStr) {
+  let seed = 0
+  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+// آلة الحالة: تُقدّم اللعبة تلقائياً كلما حان وقتها، بصرف النظر عمّن يسأل
+async function tickGame(env, room) {
+  const g = await env.DB.prepare('SELECT * FROM games WHERE room = ?').bind(room).first()
+  if (!g || g.phase === 'idle' || g.phase === 'final') return g
+  const now = Date.now()
+  if (g.phase === 'show' && now >= g.deadline) {
+    const order = JSON.parse(g.order_json)
+    const owner = order[g.idx]
+    const rows = (await env.DB.prepare('SELECT guesser, guess FROM guesses WHERE room = ? AND round = ?').bind(room, g.idx).all()).results
+    for (const row of rows) {
+      if (row.guess === owner) {
+        await env.DB.prepare(
+          'INSERT INTO scores (room, username, points) VALUES (?, ?, 1) ON CONFLICT(room, username) DO UPDATE SET points = points + 1'
+        )
+          .bind(room, row.guesser)
+          .run()
+      }
+    }
+    await env.DB.prepare("UPDATE games SET phase = 'revealed', deadline = ? WHERE room = ?").bind(now + REVEAL_MS, room).run()
+    return tickGame(env, room)
+  }
+  if (g.phase === 'revealed' && now >= g.deadline) {
+    const order = JSON.parse(g.order_json)
+    const nextIdx = g.idx + 1
+    if (nextIdx >= order.length) {
+      await env.DB.prepare("UPDATE games SET phase = 'final' WHERE room = ?").bind(room).run()
+    } else {
+      await env.DB.prepare("UPDATE games SET phase = 'show', idx = ?, deadline = ? WHERE room = ?").bind(nextIdx, now + GUESS_MS, room).run()
+    }
+    return tickGame(env, room)
+  }
+  return g
+}
+async function gameStateFor(env, room, username) {
+  const g = await tickGame(env, room)
+  if (!g || g.phase === 'idle') return { phase: 'idle' }
+  const order = JSON.parse(g.order_json)
+  if (g.phase === 'final') {
+    const scores = (await env.DB.prepare('SELECT username, points FROM scores WHERE room = ? ORDER BY points DESC, username ASC').bind(room).all()).results
+    return { phase: 'final', total: order.length, scores }
+  }
+  const owner = order[g.idx]
+  const row = await env.DB.prepare('SELECT data FROM wishes WHERE id = ?').bind(await wishId(env, room, owner)).first()
+  const mine = await env.DB.prepare('SELECT guess FROM guesses WHERE room = ? AND round = ? AND guesser = ?').bind(room, g.idx, username).first()
+  const guessCount = (await env.DB.prepare('SELECT COUNT(*) AS n FROM guesses WHERE room = ? AND round = ?').bind(room, g.idx).first()).n
+  return {
+    phase: g.phase,
+    round: g.idx + 1,
+    total: order.length,
+    deadline: g.deadline,
+    cipher: row ? row.data : null,
+    myGuess: mine ? mine.guess : null,
+    guessCount,
+    owner: g.phase === 'revealed' ? owner : null,
+  }
+}
+
 function newCode() {
   const a = crypto.getRandomValues(new Uint8Array(6))
   return [...a].map((b) => CODE_CHARS[b % CODE_CHARS.length]).join('')
@@ -73,6 +157,9 @@ async function deleteRoomFully(DB, code) {
   await DB.prepare('DELETE FROM wishes WHERE room = ?').bind(code).run()
   await DB.prepare('DELETE FROM members WHERE room = ?').bind(code).run()
   await DB.prepare('DELETE FROM bans WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM games WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM guesses WHERE room = ?').bind(code).run()
+  await DB.prepare('DELETE FROM scores WHERE room = ?').bind(code).run()
   await DB.prepare('DELETE FROM rooms WHERE code = ?').bind(code).run()
 }
 
@@ -257,6 +344,37 @@ async function adminRoutes(path, request, env) {
     const b = await body(request)
     await DB.prepare('DELETE FROM bans WHERE room = ? AND username = ?').bind(String(b.room || '').toUpperCase(), String(b.username || '')).run()
     return json({ ok: true })
+  }
+
+  if (path === '/api/admin/game') {
+    const b = await body(request)
+    const code = String(b.room || '').toUpperCase()
+    const action = String(b.action || '')
+    if (action === 'start') {
+      const existing = await DB.prepare('SELECT phase FROM games WHERE room = ?').bind(code).first()
+      if (existing && existing.phase !== 'idle') return json({ error: 'اللعبة بدأت بالفعل' }, 400)
+      const members = await wishedMembers(env, code)
+      if (members.length === 0) return json({ error: 'لا توجد أمنيات في هذه الغرفة بعد' }, 400)
+      const order = shuffle(members, code)
+      const now = Date.now()
+      await DB.prepare(
+        "INSERT INTO games (room, order_json, idx, phase, deadline, started_at) VALUES (?, ?, 0, 'show', ?, ?) ON CONFLICT(room) DO UPDATE SET order_json = excluded.order_json, idx = 0, phase = 'show', deadline = excluded.deadline, started_at = excluded.started_at"
+      )
+        .bind(code, JSON.stringify(order), now + GUESS_MS, now)
+        .run()
+      return json({ ok: true })
+    }
+    if (action === 'skip') {
+      await DB.prepare('UPDATE games SET deadline = ? WHERE room = ?').bind(Date.now(), code).run()
+      return json({ ok: true })
+    }
+    if (action === 'reset') {
+      await DB.prepare("UPDATE games SET phase = 'idle', idx = -1 WHERE room = ?").bind(code).run()
+      await DB.prepare('DELETE FROM guesses WHERE room = ?').bind(code).run()
+      await DB.prepare('DELETE FROM scores WHERE room = ?').bind(code).run()
+      return json({ ok: true })
+    }
+    return json({ error: 'إجراء غير معروف' }, 400)
   }
 
   if (path === '/api/admin/delete-room') {
@@ -493,6 +611,63 @@ async function handle(request, env) {
         if ((await roomOwner(env, code)) !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
         await deleteRoomFully(env.DB, code)
         return json({ ok: true })
+      }
+
+      if (path === '/api/game/state') {
+        const code = (new URL(request.url).searchParams.get('room') || '').toUpperCase()
+        const mem = await env.DB.prepare('SELECT 1 AS x FROM members WHERE room = ? AND username = ?').bind(code, user.username).first()
+        if (!mem) return json({ error: 'أنت لست عضواً في هذه الغرفة' }, 403)
+        return json(await gameStateFor(env, code, user.username))
+      }
+
+      if (path === '/api/game/guess' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        const mem = await env.DB.prepare('SELECT 1 AS x FROM members WHERE room = ? AND username = ?').bind(code, user.username).first()
+        if (!mem) return json({ error: 'أنت لست عضواً في هذه الغرفة' }, 403)
+        const g = await tickGame(env, code)
+        if (!g || g.phase !== 'show') return json({ error: 'لا يوجد تصويت الآن' }, 400)
+        if (Date.now() >= g.deadline) return json({ error: 'انتهى وقت التخمين' }, 400)
+        const guess = String(b.guess || '')
+        const isMember = await env.DB.prepare('SELECT 1 AS x FROM members WHERE room = ? AND username = ?').bind(code, guess).first()
+        if (!isMember) return json({ error: 'اختر اسماً من أعضاء الغرفة' }, 400)
+        await env.DB.prepare(
+          'INSERT INTO guesses (room, round, guesser, guess, ts) VALUES (?, ?, ?, ?, ?) ON CONFLICT(room, round, guesser) DO UPDATE SET guess = excluded.guess, ts = excluded.ts'
+        )
+          .bind(code, g.idx, user.username, guess, Date.now())
+          .run()
+        return json({ ok: true })
+      }
+
+      if (path === '/api/game/start' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        const owner = await roomOwner(env, code)
+        if (owner !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        if (Date.now() < UNLOCK_AT) return json({ error: 'لم يحن موعد فتح الصندوق بعد' }, 403)
+        const existing = await env.DB.prepare('SELECT phase FROM games WHERE room = ?').bind(code).first()
+        if (existing && existing.phase !== 'idle') return json({ error: 'اللعبة بدأت بالفعل' }, 400)
+        const members = await wishedMembers(env, code)
+        if (members.length === 0) return json({ error: 'لا توجد أمنيات في هذه الغرفة بعد' }, 400)
+        const order = shuffle(members, code)
+        const now = Date.now()
+        await env.DB.prepare(
+          "INSERT INTO games (room, order_json, idx, phase, deadline, started_at) VALUES (?, ?, 0, 'show', ?, ?) ON CONFLICT(room) DO UPDATE SET order_json = excluded.order_json, idx = 0, phase = 'show', deadline = excluded.deadline, started_at = excluded.started_at"
+        )
+          .bind(code, JSON.stringify(order), now + GUESS_MS, now)
+          .run()
+        return json({ ok: true })
+      }
+
+      if (path === '/api/game/skip' && request.method === 'POST') {
+        const b = await body(request)
+        const code = String(b.room || '').toUpperCase()
+        const owner = await roomOwner(env, code)
+        if (owner !== user.username) return json({ error: 'أنت لست منشئ هذه الغرفة' }, 403)
+        const g = await env.DB.prepare('SELECT phase FROM games WHERE room = ?').bind(code).first()
+        if (!g || g.phase === 'idle' || g.phase === 'final') return json({ error: 'لا توجد جولة جارية' }, 400)
+        await env.DB.prepare('UPDATE games SET deadline = ? WHERE room = ?').bind(Date.now(), code).run()
+        return json(await gameStateFor(env, code, user.username))
       }
 
       if (path === '/api/join' && request.method === 'POST') {
