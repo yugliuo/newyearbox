@@ -16,3 +16,15 @@ export async function unlockText(cipher) {
   const buf = await timelockDecrypt(cipher, mainnetClient())
   return buf.toString('utf8')
 }
+
+// نفس القفل الزمني لكن للبيانات الثنائية (الفيديو)، بلا تحويل نص
+export async function lockBytes(bytes, unlockAt = UNLOCK_AT) {
+  const cipherStr = await timelockEncrypt(roundFor(unlockAt), Buffer.from(bytes), mainnetClient())
+  return new TextEncoder().encode(cipherStr)
+}
+
+export async function unlockBytes(cipherBytes) {
+  const cipherStr = new TextDecoder().decode(cipherBytes)
+  const buf = await timelockDecrypt(cipherStr, mainnetClient())
+  return new Uint8Array(buf)
+}

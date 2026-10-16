@@ -391,6 +391,13 @@ async function adminRoutes(path, request, env) {
     for (const r of rows) await DB.prepare('DELETE FROM wishes WHERE id = ?').bind(await wishId(env, r.room, user.username)).run()
     await DB.prepare('DELETE FROM members WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM vaults WHERE username = ?').bind(user.username).run()
+    if (env.VIDEOS) {
+      try {
+        await env.VIDEOS.delete('video:' + user.username)
+      } catch {
+        /* لا بأس إن لم يوجد فيديو أصلاً */
+      }
+    }
     await DB.prepare('DELETE FROM sessions WHERE username = ?').bind(user.username).run()
     await DB.prepare('DELETE FROM users WHERE username = ?').bind(user.username).run()
     return json({ ok: true })
@@ -479,6 +486,78 @@ async function handle(request, env) {
           r.isOwner = r.created_by === user.username
         }
         return json({ rooms: rows })
+      }
+
+      if (path === '/api/video/start' && request.method === 'POST') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        if (Date.now() >= UNLOCK_AT) return json({ error: 'أُغلق الصندوق ولم يعد الرفع ممكناً' }, 403)
+        const b = await body(request)
+        const size = Number(b.size) || 0
+        if (size <= 0 || size > 524288000) return json({ error: 'حجم الفيديو يجب ألا يتجاوز 500 ميغابايت' }, 400)
+        const key = 'video:' + user.username
+        const mpu = await env.VIDEOS.createMultipartUpload(key)
+        return json({ uploadId: mpu.uploadId, key })
+      }
+
+      if (path === '/api/video/part' && request.method === 'POST') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        const url = new URL(request.url)
+        const key = url.searchParams.get('key') || ''
+        const uploadId = url.searchParams.get('uploadId') || ''
+        const partNumber = Number(url.searchParams.get('part'))
+        if (key !== 'video:' + user.username) return json({ error: 'غير مصرّح' }, 403)
+        if (!uploadId || !partNumber) return json({ error: 'طلب غير صحيح' }, 400)
+        const mpu = env.VIDEOS.resumeMultipartUpload(key, uploadId)
+        const part = await mpu.uploadPart(partNumber, request.body)
+        return json({ etag: part.etag })
+      }
+
+      if (path === '/api/video/complete' && request.method === 'POST') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        const b = await body(request)
+        const key = String(b.key || '')
+        if (key !== 'video:' + user.username) return json({ error: 'غير مصرّح' }, 403)
+        const mpu = env.VIDEOS.resumeMultipartUpload(key, String(b.uploadId || ''))
+        await mpu.complete(b.parts || [])
+        await env.DB.prepare('INSERT INTO vaults (username, video_size, video_at) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET video_size = excluded.video_size, video_at = excluded.video_at')
+          .bind(user.username, Number(b.size) || 0, Date.now())
+          .run()
+        return json({ ok: true })
+      }
+
+      if (path === '/api/video/abort' && request.method === 'POST') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        const b = await body(request)
+        const key = String(b.key || '')
+        if (key !== 'video:' + user.username) return json({ error: 'غير مصرّح' }, 403)
+        try {
+          const mpu = env.VIDEOS.resumeMultipartUpload(key, String(b.uploadId || ''))
+          await mpu.abort()
+        } catch {
+          /* قد تكون انتهت أو أُكملت بالفعل، لا بأس */
+        }
+        return json({ ok: true })
+      }
+
+      if (path === '/api/video/status') {
+        const row = await env.DB.prepare('SELECT video_size, video_at FROM vaults WHERE username = ?').bind(user.username).first()
+        const has = !!(row && row.video_size)
+        return json({ has, size: has ? row.video_size : 0, updatedAt: has ? row.video_at : 0 })
+      }
+
+      if (path === '/api/video' && request.method === 'GET') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        const key = 'video:' + user.username
+        const obj = await env.VIDEOS.get(key)
+        if (!obj) return json({ error: 'لا يوجد فيديو محفوظ' }, 404)
+        return new Response(obj.body, { headers: { 'Content-Type': 'application/octet-stream' } })
+      }
+
+      if (path === '/api/video' && request.method === 'DELETE') {
+        if (!env.VIDEOS) return json({ error: 'تخزين الفيديو غير مفعّل على السيرفر' }, 500)
+        await env.VIDEOS.delete('video:' + user.username)
+        await env.DB.prepare('UPDATE vaults SET video_size = 0, video_at = 0 WHERE username = ?').bind(user.username).run()
+        return json({ ok: true })
       }
 
       if (path === '/api/vault') {

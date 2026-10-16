@@ -8,5 +8,11 @@
       "database_name": "newyear-box-db",
       "database_id": "836b9fd1-0da1-45ab-b749-e087b2c60420"
     }
-  ]
+  ],
+  "r2_buckets": [
+  {
+    "binding": "VIDEOS",
+    "bucket_name": "newyear-box-videos"
+  }
+]
 }

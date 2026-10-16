@@ -1,16 +1,24 @@
-const API = 'https://newyear-box-api.taoh.workers.dev'
+export const API_BASE = 'https://newyear-box-api.taoh.workers.dev'
+const API = API_BASE
 
-export async function api(path, body, token) {
+// body: كائن JSON يُرسل كما كان دائماً. rawBody: بيانات ثنائية (Uint8Array) تُرسل كما هي (رفع الفيديو).
+// method: يفرض طريقة صريحة (مثل DELETE) حتى بلا جسم.
+export async function api(path, body, token, rawBody, method) {
   try {
     const res = await fetch(API + path, {
-      method: body ? 'POST' : 'GET',
+      method: method || (rawBody ? 'POST' : body ? 'POST' : 'GET'),
       headers: {
-        'Content-Type': 'application/json',
+        ...(rawBody ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: 'Bearer ' + token } : {}),
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: rawBody ? rawBody : body ? JSON.stringify(body) : undefined,
     })
-    const data = await res.json()
+    let data = null
+    try {
+      data = await res.json()
+    } catch {
+      data = {}
+    }
     if (res.status === 401 && token && data.error === 'سجّل الدخول من جديد') {
       clearSession()
       try {

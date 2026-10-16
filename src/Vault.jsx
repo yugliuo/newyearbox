@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { lockText, unlockText, UNLOCK_AT } from './lock.js'
 import { encryptDraft, decryptDraft } from './crypt.js'
+import VideoBox from './VideoBox.jsx'
 
 const nowMs = () => Date.now()
 function readLocal(key) {
@@ -131,6 +132,7 @@ export default function Vault({ user, onBack }) {
         )}
         {!loading && !opened && !err && <div style={{ opacity: 0.85 }}>لم تكتب رسالة هذه السنة.</div>}
         {err && <div style={{ color: '#ffd166' }}>{err}</div>}
+        <VideoBox user={user} />
       </div>
     )
   }
@@ -158,6 +160,7 @@ export default function Vault({ user, onBack }) {
         }}
       />
       {err && <div style={{ color: '#ffd166', fontSize: 13, textAlign: 'center' }}>⚠️ {err}</div>}
+      <VideoBox user={user} />
       <button
         onClick={done}
         style={{ padding: 12, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 24, cursor: 'pointer', background: '#ffb830', color: '#000' }}
