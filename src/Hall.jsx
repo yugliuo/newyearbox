@@ -182,7 +182,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
         <div style={{ fontSize: 56 }}>🚪</div>
         <div style={{ fontSize: 18, lineHeight: 1.8 }}>تم إخراجك من هذه الغرفة</div>
-        <button style={{ ...smallBtn, background: '#ffb830', color: '#000' }} onClick={onBack}>العودة إلى غرفي</button>
+        <button style={{ ...smallBtn, background: '#e8b23d', color: '#000' }} onClick={onBack}>العودة إلى غرفي</button>
       </div>
     )
   }
@@ -195,10 +195,10 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
     <div style={{ maxWidth: 440, margin: '0 auto', padding: '12px 16px', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <style>{CSS}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onBack} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>→ غرفي</button>
+        <button onClick={onBack} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: 'rgba(255,235,215,0.18)', color: '#fff' }}>→ غرفي</button>
         <span style={{ fontWeight: 700, fontSize: 17 }}>{room.name}</span>
         {room.isOwner && (
-          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#ffb830' : 'rgba(255,255,255,0.18)', color: manage ? '#000' : '#fff', marginRight: 'auto' }}>
+          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#e8b23d' : 'rgba(255,235,215,0.18)', color: manage ? '#000' : '#fff', marginRight: 'auto' }}>
             ⚙️ إدارة الغرفة
           </button>
         )}
@@ -215,9 +215,9 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
                   <span style={{ opacity: 0.7 }}>لا أعضاء غيرك بعد</span>
                 )}
                 {roomMembers.members.filter((m) => m !== user.username).map((m) => (
-                  <span key={m} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '4px 4px 4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span key={m} style={{ background: 'rgba(255,235,215,0.15)', borderRadius: 14, padding: '4px 4px 4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {m}
-                    <button onClick={() => kickFrom(m)} style={{ border: 'none', borderRadius: 10, background: '#e5484d', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>طرد</button>
+                    <button onClick={() => kickFrom(m)} style={{ border: 'none', borderRadius: 10, background: '#c23a3a', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>طرد</button>
                   </span>
                 ))}
               </div>
@@ -228,21 +228,21 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
                     {roomMembers.banned.map((m) => (
                       <span key={m} style={{ background: 'rgba(229,72,77,0.25)', borderRadius: 14, padding: '4px 4px 4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         {m}
-                        <button onClick={() => unbanFrom(m)} style={{ border: 'none', borderRadius: 10, background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>إلغاء</button>
+                        <button onClick={() => unbanFrom(m)} style={{ border: 'none', borderRadius: 10, background: 'rgba(255,235,215,0.2)', color: '#fff', fontSize: 12, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>إلغاء</button>
                       </span>
                     ))}
                   </div>
                 </>
               )}
               {!confirmDeleteRoom ? (
-                <button onClick={() => setConfirmDeleteRoom(true)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#e5484d', color: '#fff' }}>
+                <button onClick={() => setConfirmDeleteRoom(true)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#c23a3a', color: '#fff' }}>
                   🗑️ حذف الغرفة نهائياً
                 </button>
               ) : (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span>متأكد؟ لا يمكن التراجع.</span>
-                  <button onClick={deleteRoom} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#e5484d', color: '#fff' }}>نعم، احذف</button>
-                  <button onClick={() => setConfirmDeleteRoom(false)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>إلغاء</button>
+                  <button onClick={deleteRoom} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: '#c23a3a', color: '#fff' }}>نعم، احذف</button>
+                  <button onClick={() => setConfirmDeleteRoom(false)} style={{ ...smallBtn, padding: '6px 14px', fontSize: 13, background: 'rgba(255,235,215,0.18)', color: '#fff' }}>إلغاء</button>
                 </div>
               )}
             </>
@@ -254,7 +254,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         {left > 0 ? '🔒 تنفتح الأمنيات بعد ' + fmt(left) : '🎉 انفتح الصندوق'}
       </div>
 
-      <div style={{ position: 'relative', width: dims.W, height: dims.H, margin: '0 auto', background: 'rgba(255,255,255,0.06)', borderRadius: 18, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: dims.W, height: dims.H, margin: '0 auto', background: 'rgba(255,235,215,0.06)', borderRadius: 18, overflow: 'hidden' }}>
         {members.map((m, i) => {
           const t = TINTS[i % TINTS.length]
           const isMe = m.username === user.username
@@ -269,7 +269,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
               <div style={{
                 width: L.size, height: L.size, borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: Math.round(L.size * 0.55), background: 'var(' + t[0] + ')', color: 'var(' + t[1] + ')',
-                border: isMe ? '2px solid #ffb830' : '1px solid rgba(255,255,255,0.2)',
+                border: isMe ? '2px solid #e8b23d' : '1px solid rgba(255,235,215,0.2)',
               }}>
                 {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.emoji || '👤'}
               </div>
@@ -305,18 +305,18 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         {!data && <div style={{ opacity: 0.8 }}>جارٍ الدخول إلى الغرفة...</div>}
         {data && left <= 0 && <div>صالة اللعب قادمة قريباً</div>}
         {data && left > 0 && me && me.state === 'idle' && (
-          <button style={{ ...smallBtn, background: '#ffb830', color: '#000', opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={startWriting}>✍️ اكتب أمنيتك</button>
+          <button style={{ ...smallBtn, background: '#e8b23d', color: '#000', opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={startWriting}>✍️ اكتب أمنيتك</button>
         )}
         {data && left > 0 && me && me.state === 'writing' && (
-          <button style={{ ...smallBtn, background: '#ffb830', color: '#000' }} onClick={onEdit}>✏️ فتح بطاقتي</button>
+          <button style={{ ...smallBtn, background: '#e8b23d', color: '#000' }} onClick={onEdit}>✏️ فتح بطاقتي</button>
         )}
         {data && left > 0 && me && me.state === 'done' && (
           <>
             <div style={{ fontSize: 15 }}>✅ بطاقتك داخل الصندوق</div>
-            <button style={{ ...smallBtn, padding: '8px 18px', fontSize: 14, background: 'rgba(255,255,255,0.18)', color: '#fff' }} onClick={takeBack}>تعديل بطاقتي</button>
+            <button style={{ ...smallBtn, padding: '8px 18px', fontSize: 14, background: 'rgba(255,235,215,0.18)', color: '#fff' }} onClick={takeBack}>تعديل بطاقتي</button>
           </>
         )}
-        {msg && <div style={{ color: '#ffd166', fontSize: 14 }}>{msg}</div>}
+        {msg && <div style={{ color: '#f2c25e', fontSize: 14 }}>{msg}</div>}
       </div>
     </div>
   )

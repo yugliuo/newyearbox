@@ -7,6 +7,8 @@ import Hall from './Hall.jsx'
 import Admin from './Admin.jsx'
 import Vault from './Vault.jsx'
 import Test from './Test.jsx'
+import Snow from './Snow.jsx'
+import MusicToggle from './MusicToggle.jsx'
 
 const Pan3D = lazy(() => import('./Pan3D.jsx'))
 const Box3D = lazy(() => import('./Box3D.jsx'))
@@ -102,15 +104,16 @@ export default function App() {
     )
   }
 
+  let content = null
+
   if (page === 'editor' && user && room) {
-    return <Editor user={user} room={room} onBack={() => go('room', room)} onFinished={() => go('room', room, true)} />
-  }
-  if (page === 'room' && user && room) {
-    return <Hall user={user} room={room} justDone={justDone} onBack={() => go('rooms')} onEdit={openEditor} />
-  }
-  if (page === 'vault' && user) return <Vault user={user} onBack={() => go('rooms')} />
-  if (page === 'rooms' && user) {
-    return (
+    content = <Editor user={user} room={room} onBack={() => go('room', room)} onFinished={() => go('room', room, true)} />
+  } else if (page === 'room' && user && room) {
+    content = <Hall user={user} room={room} justDone={justDone} onBack={() => go('rooms')} onEdit={openEditor} />
+  } else if (page === 'vault' && user) {
+    content = <Vault user={user} onBack={() => go('rooms')} />
+  } else if (page === 'rooms' && user) {
+    content = (
       <Rooms
         user={user}
         joinCode={joinCode}
@@ -120,9 +123,22 @@ export default function App() {
         onLogout={logout}
       />
     )
+  } else if (page === 'auth') {
+    content = <Auth onDone={onDone} onBack={() => go('welcome')} />
+  } else {
+    content = <Welcome user={user} joinCode={joinCode} onStart={() => go(user ? 'rooms' : 'auth')} onLogout={logout} />
   }
-  if (page === 'auth') return <Auth onDone={onDone} onBack={() => go('welcome')} />
 
+  return (
+    <>
+      <Snow />
+      <MusicToggle />
+      {content}
+    </>
+  )
+}
+
+function Welcome({ user, joinCode, onStart, onLogout }) {
   return (
     <div style={{
       minHeight: '100dvh', display: 'flex', flexDirection: 'column',
@@ -135,19 +151,19 @@ export default function App() {
         اكتب أمنيتك على ورقة، واقفلها في الصندوق،
         وسنفتحه معاً في رأس السنة القادمة!
       </p>
-      {joinCode && <p style={{ color: '#ffd166' }}>🎟️ لديك دعوة للانضمام إلى غرفة</p>}
+      {joinCode && <p style={{ color: '#f2c25e' }}>🎟️ لديك دعوة للانضمام إلى غرفة</p>}
       {user && <p style={{ opacity: 0.8 }}>مسجّل باسم: {user.username}</p>}
       <button
-        onClick={() => go(user ? 'rooms' : 'auth')}
+        onClick={onStart}
         style={{
           padding: '14px 36px', fontSize: '18px', fontFamily: 'inherit',
           fontWeight: 700, border: 'none', borderRadius: '30px',
-          background: '#ffb830', cursor: 'pointer'
+          background: '#e8b23d', cursor: 'pointer'
         }}>
         ابدأ
       </button>
       {user && (
-        <button onClick={logout} style={{ background: 'none', border: 'none', color: '#fff', opacity: 0.7, fontFamily: 'inherit', cursor: 'pointer' }}>
+        <button onClick={onLogout} style={{ background: 'none', border: 'none', color: '#fff', opacity: 0.7, fontFamily: 'inherit', cursor: 'pointer' }}>
           تسجيل الخروج
         </button>
       )}

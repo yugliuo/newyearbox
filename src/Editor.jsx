@@ -7,7 +7,7 @@ const SHAPES = [['torn', 'قصاصة ممزقة'], ['sticky', 'ملاحظة لا
 const DECOS = [['none', 'بدون'], ['tape', 'شريط لاصق'], ['stitch', 'خياطة'], ['stars', 'نجوم'], ['wave', 'موجات']]
 const FONTS = [['Cairo', 'القاهرة'], ['Tajawal', 'تجوّل'], ['Amiri', 'أميري'], ['Lalezar', 'لالزار'], ['Reem Kufi', 'ريم كوفي'], ['Aref Ruqaa', 'عارف رقعة'], ['Pacifico', 'Pacifico'], ['Caveat', 'Caveat'], ['Lobster', 'Lobster'], ['Indie Flower', 'Indie Flower']]
 const PAPER_COLORS = ['#ffffff', '#fff3a0', '#ffc8dd', '#bde0fe', '#c7f9cc', '#ffd6a5', '#e0bbff', '#f1e3c8', '#ffb3b3', '#d9d9d9']
-const DECO_COLORS = ['#ffb830', '#ff4d6d', '#4cc9f0', '#80ed99', '#b388ff', '#ffffff', '#ff9f1c', '#2ec4b6', '#f72585', '#222222']
+const DECO_COLORS = ['#e8b23d', '#ff4d6d', '#4cc9f0', '#80ed99', '#b388ff', '#ffffff', '#ff9f1c', '#2ec4b6', '#f72585', '#222222']
 const FONT_COLORS = ['#222222', '#ffffff', '#b00020', '#0b3d91', '#0a6e31', '#6a1b9a', '#e65100', '#000000', '#795548', '#c2185b']
 const STICKERS = ['⭐', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊️', '🌹', '☕']
 const INSETS = { torn: '20px 24px', sticky: '20px 20px 44px', notebook: '12px 20px 12px 44px', polaroid: '30px 30px 74px', old: '28px 32px' }
@@ -64,8 +64,8 @@ function wave(c) {
 function chip(active) {
   return {
     padding: '8px 14px', margin: 4, borderRadius: 20, cursor: 'pointer',
-    border: active ? '2px solid #ffb830' : '2px solid transparent',
-    background: active ? 'rgba(255,184,48,0.25)' : 'rgba(255,255,255,0.12)',
+    border: active ? '2px solid #e8b23d' : '2px solid transparent',
+    background: active ? 'rgba(255,184,48,0.25)' : 'rgba(255,235,215,0.12)',
     color: '#fff', fontSize: 15, fontFamily: 'inherit',
   }
 }
@@ -274,7 +274,7 @@ export default function Editor({ user, room, onBack, onFinished }) {
         onClick={() => onChange(c)}
         style={{
           width: 44, height: 44, margin: 5, borderRadius: '50%', background: c, cursor: 'pointer',
-          border: value === c ? '4px solid #ffb830' : '2px solid rgba(255,255,255,0.6)',
+          border: value === c ? '4px solid #e8b23d' : '2px solid rgba(255,235,215,0.6)',
         }}
       />
     ))
@@ -331,7 +331,7 @@ export default function Editor({ user, room, onBack, onFinished }) {
       <style>{'@keyframes foldIn{0%{transform:none;opacity:1}35%{transform:scaleY(.18)}70%{transform:scale(.3,.18) translateY(-20px)}100%{transform:translateY(-140px) scale(.08) rotate(8deg);opacity:0}}'}</style>
       <div style={{ flex: 'none', padding: '10px 16px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <button onClick={back} style={{ padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+          <button onClick={back} style={{ padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,235,215,0.18)', color: '#fff' }}>
             → الغرف
           </button>
           <span style={{ fontWeight: 700, fontSize: 15 }}>{room.name}</span>
@@ -411,17 +411,17 @@ export default function Editor({ user, room, onBack, onFinished }) {
           ))}
         </div>
         {weak && (
-          <div style={{ marginTop: 8, fontSize: 12, color: '#ffd166', textAlign: 'center' }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: '#f2c25e', textAlign: 'center' }}>
             ⚠️ لون الخط قريب من لون الورقة، قد يصعب قراءته
           </div>
         )}
-        {err && <div style={{ marginTop: 8, fontSize: 12, color: '#ffd166', textAlign: 'center' }}>⚠️ {err}</div>}
+        {err && <div style={{ marginTop: 8, fontSize: 12, color: '#f2c25e', textAlign: 'center' }}>⚠️ {err}</div>}
         <button
           onClick={finish}
           disabled={empty || finishing}
           style={{
             width: '100%', marginTop: 10, padding: 11, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-            borderRadius: 24, cursor: 'pointer', background: '#ffb830', color: '#000', opacity: empty || finishing ? 0.5 : 1,
+            borderRadius: 24, cursor: 'pointer', background: '#e8b23d', color: '#000', opacity: empty || finishing ? 0.5 : 1,
           }}
         >
           {finishing ? '...' : 'أكملت ✓ ضع بطاقتي في الصندوق'}
@@ -437,7 +437,7 @@ export default function Editor({ user, room, onBack, onFinished }) {
               flex: '0 0 auto', minHeight: 48, padding: '4px 12px', borderRadius: 14, cursor: 'pointer',
               border: 'none', fontFamily: 'inherit', fontSize: 13, color: '#fff',
               background: tab === k ? 'rgba(255,184,48,0.35)' : 'transparent',
-              borderBottom: tab === k ? '3px solid #ffb830' : '3px solid transparent',
+              borderBottom: tab === k ? '3px solid #e8b23d' : '3px solid transparent',
             }}
           >
             <div style={{ fontSize: 20 }}>{icon}</div>

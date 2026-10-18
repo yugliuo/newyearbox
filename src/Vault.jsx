@@ -116,7 +116,7 @@ export default function Vault({ user, onBack }) {
 
   const box = { maxWidth: 440, margin: '0 auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, minHeight: '100dvh' }
   const back = (
-    <button onClick={done} style={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+    <button onClick={done} style={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: 14, fontFamily: 'inherit', border: 'none', borderRadius: 16, cursor: 'pointer', background: 'rgba(255,235,215,0.18)', color: '#fff' }}>
       → رجوع
     </button>
   )
@@ -131,7 +131,7 @@ export default function Vault({ user, onBack }) {
           <div style={{ background: '#fff8e1', color: '#3b2a10', borderRadius: 16, padding: 20, lineHeight: 2, fontSize: 18, whiteSpace: 'pre-wrap' }} dir="auto">{opened}</div>
         )}
         {!loading && !opened && !err && <div style={{ opacity: 0.85 }}>لم تكتب رسالة هذه السنة.</div>}
-        {err && <div style={{ color: '#ffd166' }}>{err}</div>}
+        {err && <div style={{ color: '#f2c25e' }}>{err}</div>}
         <VideoBox user={user} />
       </div>
     )
@@ -145,7 +145,7 @@ export default function Vault({ user, onBack }) {
         اختيارية وخاصة بك وحدك. تنفتح لك في رأس السنة ولا يستطيع أحد قراءتها قبل ذلك.
       </div>
       {onServer && !text.trim() && !loading && (
-        <div style={{ color: '#ffd166', fontSize: 14, lineHeight: 1.8 }}>
+        <div style={{ color: '#f2c25e', fontSize: 14, lineHeight: 1.8 }}>
           لديك رسالة محفوظة سابقاً ولا يمكن عرضها قبل الموعد. وإن كتبت هنا فستستبدلها.
         </div>
       )}
@@ -159,11 +159,11 @@ export default function Vault({ user, onBack }) {
           borderRadius: 16, border: 'none', outline: 'none', background: '#fff8e1', color: '#3b2a10',
         }}
       />
-      {err && <div style={{ color: '#ffd166', fontSize: 13, textAlign: 'center' }}>⚠️ {err}</div>}
+      {err && <div style={{ color: '#f2c25e', fontSize: 13, textAlign: 'center' }}>⚠️ {err}</div>}
       <VideoBox user={user} />
       <button
         onClick={done}
-        style={{ padding: 12, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 24, cursor: 'pointer', background: '#ffb830', color: '#000' }}
+        style={{ padding: 12, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 24, cursor: 'pointer', background: '#e8b23d', color: '#000' }}
       >
         تم ✓
       </button>

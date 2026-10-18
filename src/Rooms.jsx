@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 
-const card = { background: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }
+const card = { background: 'rgba(255,235,215,0.1)', borderRadius: 16, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }
 const btn = (primary) => ({
   padding: '10px 18px', fontSize: 15, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-  borderRadius: 20, cursor: 'pointer', background: primary ? '#ffb830' : 'rgba(255,255,255,0.15)', color: primary ? '#000' : '#fff',
+  borderRadius: 20, cursor: 'pointer', background: primary ? '#e8b23d' : 'rgba(255,235,215,0.15)', color: primary ? '#000' : '#fff',
 })
 
 export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, onLogout }) {
@@ -86,7 +86,7 @@ export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, 
             maxLength={40}
             style={{
               flex: 1, minWidth: 0, padding: '12px 14px', fontSize: 15,
-              borderRadius: 12, border: '2px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontFamily: 'inherit',
+              borderRadius: 12, border: '2px solid rgba(255,235,215,0.25)', background: 'rgba(255,235,215,0.1)', color: '#fff', outline: 'none', fontFamily: 'inherit',
             }}
           />
           <button style={{ ...btn(true), opacity: creating || !newRoomName.trim() ? 0.5 : 1 }} disabled={creating || !newRoomName.trim()} onClick={createRoom}>
@@ -132,14 +132,14 @@ export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, 
             dir="ltr"
             style={{
               flex: 1, minWidth: 0, padding: '12px 14px', fontSize: 18, letterSpacing: 3, textAlign: 'center',
-              borderRadius: 12, border: '2px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', color: '#fff', outline: 'none',
+              borderRadius: 12, border: '2px solid rgba(255,235,215,0.25)', background: 'rgba(255,235,215,0.1)', color: '#fff', outline: 'none',
             }}
           />
           <button style={{ ...btn(true), opacity: busy || code.length < 6 ? 0.5 : 1 }} disabled={busy || code.length < 6} onClick={join}>انضم</button>
         </div>
       </div>
 
-      {msg && <div style={{ color: '#ffd166', textAlign: 'center', lineHeight: 1.7 }}>{msg}</div>}
+      {msg && <div style={{ color: '#f2c25e', textAlign: 'center', lineHeight: 1.7 }}>{msg}</div>}
 
       <button style={{ ...btn(false), alignSelf: 'center', marginTop: 8 }} onClick={onLogout}>تسجيل الخروج</button>
     </div>

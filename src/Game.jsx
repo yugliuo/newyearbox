@@ -5,7 +5,7 @@ import WishCard from './WishCard.jsx'
 
 const btn = (primary, color) => ({
   padding: '10px 20px', fontSize: 15, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-  borderRadius: 22, cursor: 'pointer', background: color || (primary ? '#ffb830' : 'rgba(255,255,255,0.15)'), color: primary && !color ? '#000' : '#fff',
+  borderRadius: 22, cursor: 'pointer', background: color || (primary ? '#e8b23d' : 'rgba(255,235,215,0.15)'), color: primary && !color ? '#000' : '#fff',
 })
 const box = { maxWidth: 440, margin: '0 auto', padding: '14px 16px', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 12 }
 const topBar = { display: 'flex', alignItems: 'center', gap: 10 }
@@ -130,7 +130,7 @@ export default function Game({ user, room, isOwner, onBack }) {
           ) : (
             <div style={{ opacity: 0.85 }}>بانتظار أن يبدأ منظّم الغرفة اللعبة...</div>
           )}
-          {msg && <div style={{ color: '#ffd166' }}>{msg}</div>}
+          {msg && <div style={{ color: '#f2c25e' }}>{msg}</div>}
         </div>
       </div>
     )
@@ -156,7 +156,7 @@ export default function Game({ user, room, isOwner, onBack }) {
       {revealed && <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 900, color: '#8ef58e' }}>🎉 {state.owner}</div>}
 
       <div style={{ margin: '0 auto', width: '100%', maxWidth: 300 }}>
-        {snapErr && <div style={{ textAlign: 'center', color: '#ffd166', padding: 30 }}>{snapErr}</div>}
+        {snapErr && <div style={{ textAlign: 'center', color: '#f2c25e', padding: 30 }}>{snapErr}</div>}
         {!snapErr && snap && <WishCard snap={snap} height={240} />}
         {!snapErr && !snap && <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}>جارٍ فتح البطاقة...</div>}
       </div>
@@ -173,7 +173,7 @@ export default function Game({ user, room, isOwner, onBack }) {
                 onClick={() => guess(m)}
                 style={{
                   ...btn(state.myGuess === m),
-                  border: state.myGuess === m ? '2px solid #ffb830' : '2px solid transparent',
+                  border: state.myGuess === m ? '2px solid #e8b23d' : '2px solid transparent',
                 }}
               >
                 {m}
@@ -183,7 +183,7 @@ export default function Game({ user, room, isOwner, onBack }) {
         </>
       )}
 
-      {msg && <div style={{ color: '#ffd166', fontSize: 13, textAlign: 'center' }}>{msg}</div>}
+      {msg && <div style={{ color: '#f2c25e', fontSize: 13, textAlign: 'center' }}>{msg}</div>}
     </div>
   )
 }
@@ -197,11 +197,11 @@ function FinalScreen({ scores, onBack }) {
       </div>
       <div style={{ textAlign: 'center', fontSize: 24, fontWeight: 900 }}>🏆 انتهت اللعبة!</div>
 
-      <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 14 }}>
+      <div style={{ background: 'rgba(255,235,215,0.08)', borderRadius: 16, padding: 14 }}>
         <div style={{ fontWeight: 700, marginBottom: 10 }}>ترتيب أفضل المخمّنين</div>
         {top.length === 0 && <div style={{ opacity: 0.75 }}>لم يُصب أحد هذه المرة!</div>}
         {top.map((s, i) => (
-          <div key={s.username} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+          <div key={s.username} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < top.length - 1 ? '1px solid rgba(255,235,215,0.1)' : 'none' }}>
             <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1 + '.'} {s.username}</span>
             <span style={{ fontWeight: 700 }}>{s.points} نقطة</span>
           </div>

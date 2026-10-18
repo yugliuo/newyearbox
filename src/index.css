@@ -4,7 +4,8 @@
 
 body {
   font-family: 'Cairo', sans-serif;
-  background: linear-gradient(160deg, #1a1040, #3b1d6e);
+  background: linear-gradient(160deg, #1a0407, #5a0f1c);
+  background-attachment: fixed;
   color: #fff;
   min-height: 100vh;
   direction: rtl;

@@ -6,10 +6,10 @@ const MAX_BYTES = 500 * 1024 * 1024 // 500 ميغابايت خام كحد أقص
 const MAX_SECONDS = 3 * 60 // 3 دقائق كحد أقصى
 const CHUNK = 8 * 1024 * 1024 // حجم كل قطعة أثناء الرفع
 
-const card = { background: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
+const card = { background: 'rgba(255,235,215,0.1)', borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
 const btn = (primary, danger) => ({
   padding: '9px 16px', fontSize: 14, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 20, cursor: 'pointer',
-  background: danger ? '#e5484d' : primary ? '#ffb830' : 'rgba(255,255,255,0.15)', color: primary && !danger ? '#000' : '#fff',
+  background: danger ? '#c23a3a' : primary ? '#e8b23d' : 'rgba(255,235,215,0.15)', color: primary && !danger ? '#000' : '#fff',
 })
 
 function fmtMB(bytes) {
@@ -154,7 +154,7 @@ export default function VideoBox({ user }) {
           <button style={btn(true)} disabled={opening} onClick={openVideo}>{opening ? 'جارٍ الفتح...' : '▶️ شغّل الفيديو'}</button>
         )}
         {playUrl && <video src={playUrl} controls style={{ width: '100%', borderRadius: 12 }} />}
-        {err && <div style={{ color: '#ffd166', fontSize: 13 }}>{err}</div>}
+        {err && <div style={{ color: '#f2c25e', fontSize: 13 }}>{err}</div>}
       </div>
     )
   }
@@ -182,8 +182,8 @@ export default function VideoBox({ user }) {
 
       {progress !== null && (
         <div>
-          <div style={{ height: 10, borderRadius: 6, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: progress + '%', background: '#ffb830', transition: 'width .2s' }} />
+          <div style={{ height: 10, borderRadius: 6, background: 'rgba(255,235,215,0.15)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: progress + '%', background: '#e8b23d', transition: 'width .2s' }} />
           </div>
           <div style={{ fontSize: 12, marginTop: 4, textAlign: 'center' }}>
             {progress < 15 ? 'جارٍ القفل...' : progress < 100 ? 'جارٍ الرفع... ' + progress + '%' : '✅ تم الحفظ'}
@@ -191,7 +191,7 @@ export default function VideoBox({ user }) {
         </div>
       )}
 
-      {err && <div style={{ color: '#ffd166', fontSize: 13 }}>⚠️ {err}</div>}
+      {err && <div style={{ color: '#f2c25e', fontSize: 13 }}>⚠️ {err}</div>}
 
       <input ref={fileInput} type="file" accept="video/*" onChange={pick} style={{ display: 'none' }} />
     </div>

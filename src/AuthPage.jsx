@@ -23,20 +23,20 @@ function resize(file) {
 
 const input = {
   width: '100%', padding: '14px 16px', fontSize: 16, fontFamily: 'inherit',
-  borderRadius: 14, border: '2px solid rgba(255,255,255,0.25)',
-  background: 'rgba(255,255,255,0.1)', color: '#fff', outline: 'none',
+  borderRadius: 14, border: '2px solid rgba(255,235,215,0.25)',
+  background: 'rgba(255,235,215,0.1)', color: '#fff', outline: 'none',
 }
 const btn = (primary) => ({
   width: '100%', padding: '14px', fontSize: 18, fontFamily: 'inherit', fontWeight: 700,
   border: 'none', borderRadius: 30, cursor: 'pointer',
-  background: primary ? '#ffb830' : 'rgba(255,255,255,0.15)',
+  background: primary ? '#e8b23d' : 'rgba(255,235,215,0.15)',
   color: primary ? '#000' : '#fff',
 })
 
 function Avatar({ value, size }) {
   const base = {
     width: size, height: size, borderRadius: '50%', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', background: 'rgba(255,255,255,0.15)', fontSize: size * 0.55, overflow: 'hidden',
+    justifyContent: 'center', background: 'rgba(255,235,215,0.15)', fontSize: size * 0.55, overflow: 'hidden',
   }
   if (value && value.startsWith('data:')) {
     return <img src={value} alt="" style={{ ...base, objectFit: 'cover' }} />
@@ -106,7 +106,7 @@ export default function Auth({ onDone, onBack }) {
         <input style={input} type="password" placeholder={mode === 'register' ? 'كلمة السر (6 أحرف على الأقل)' : 'كلمة السر'} value={password} onChange={(e) => setPassword(e.target.value)} />
 
         {mode === 'register' && (
-          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 14 }}>
+          <div style={{ background: 'rgba(255,235,215,0.08)', borderRadius: 16, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <Avatar value={avatar} size={56} />
               <div style={{ fontSize: 14, opacity: 0.9 }}>صورتك (اختيارية): اختر رمزاً أو ارفع صورة</div>
@@ -115,8 +115,8 @@ export default function Auth({ onDone, onBack }) {
               {EMOJIS.map((e) => (
                 <button key={e} onClick={() => setAvatar(e)} style={{
                   width: 44, height: 44, fontSize: 24, borderRadius: '50%', cursor: 'pointer',
-                  border: avatar === e ? '3px solid #ffb830' : '2px solid transparent',
-                  background: 'rgba(255,255,255,0.12)',
+                  border: avatar === e ? '3px solid #e8b23d' : '2px solid transparent',
+                  background: 'rgba(255,235,215,0.12)',
                 }}>{e}</button>
               ))}
             </div>
@@ -124,14 +124,14 @@ export default function Auth({ onDone, onBack }) {
           </div>
         )}
 
-        {msg && <div style={{ color: '#ffd166', fontSize: 15, textAlign: 'center', lineHeight: 1.7 }}>{msg}</div>}
+        {msg && <div style={{ color: '#f2c25e', fontSize: 15, textAlign: 'center', lineHeight: 1.7 }}>{msg}</div>}
 
         <button style={{ ...btn(true), opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={submit}>
           {busy ? '...' : mode === 'register' ? 'إنشاء الحساب' : 'دخول'}
         </button>
 
         {mode === 'login' && (
-          <button onClick={forgot} disabled={busy} style={{ background: 'none', border: 'none', color: '#ffb830', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer' }}>
+          <button onClick={forgot} disabled={busy} style={{ background: 'none', border: 'none', color: '#e8b23d', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer' }}>
             نسيت كلمة المرور؟
           </button>
         )}
