@@ -182,7 +182,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
         <div style={{ fontSize: 56 }}>🚪</div>
         <div style={{ fontSize: 18, lineHeight: 1.8 }}>تم إخراجك من هذه الغرفة</div>
-        <button style={{ ...smallBtn, background: '#e8b23d', color: '#000' }} onClick={onBack}>العودة إلى غرفي</button>
+        <button style={{ ...smallBtn, background: '#d4af37', color: '#6e0710' }} onClick={onBack}>العودة إلى غرفي</button>
       </div>
     )
   }
@@ -198,7 +198,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         <button onClick={onBack} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: 'rgba(255,235,215,0.18)', color: '#fff' }}>→ غرفي</button>
         <span style={{ fontWeight: 700, fontSize: 17 }}>{room.name}</span>
         {room.isOwner && (
-          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#e8b23d' : 'rgba(255,235,215,0.18)', color: manage ? '#000' : '#fff', marginRight: 'auto' }}>
+          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#d4af37' : 'rgba(255,235,215,0.18)', color: manage ? '#6e0710' : '#fff', marginRight: 'auto' }}>
             ⚙️ إدارة الغرفة
           </button>
         )}
@@ -269,7 +269,7 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
               <div style={{
                 width: L.size, height: L.size, borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: Math.round(L.size * 0.55), background: 'var(' + t[0] + ')', color: 'var(' + t[1] + ')',
-                border: isMe ? '2px solid #e8b23d' : '1px solid rgba(255,235,215,0.2)',
+                border: isMe ? '2px solid #d4af37' : '1px solid rgba(255,235,215,0.2)',
               }}>
                 {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.emoji || '👤'}
               </div>
@@ -305,10 +305,10 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         {!data && <div style={{ opacity: 0.8 }}>جارٍ الدخول إلى الغرفة...</div>}
         {data && left <= 0 && <div>صالة اللعب قادمة قريباً</div>}
         {data && left > 0 && me && me.state === 'idle' && (
-          <button style={{ ...smallBtn, background: '#e8b23d', color: '#000', opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={startWriting}>✍️ اكتب أمنيتك</button>
+          <button style={{ ...smallBtn, background: '#d4af37', color: '#6e0710', opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={startWriting}>✍️ اكتب أمنيتك</button>
         )}
         {data && left > 0 && me && me.state === 'writing' && (
-          <button style={{ ...smallBtn, background: '#e8b23d', color: '#000' }} onClick={onEdit}>✏️ فتح بطاقتي</button>
+          <button style={{ ...smallBtn, background: '#d4af37', color: '#6e0710' }} onClick={onEdit}>✏️ فتح بطاقتي</button>
         )}
         {data && left > 0 && me && me.state === 'done' && (
           <>

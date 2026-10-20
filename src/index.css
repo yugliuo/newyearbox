@@ -4,9 +4,18 @@
 
 body {
   font-family: 'Cairo', sans-serif;
-  background: linear-gradient(160deg, #1a0407, #5a0f1c);
+  background: linear-gradient(160deg, #d4121f, #7a0b12);
   background-attachment: fixed;
   color: #fff;
   min-height: 100vh;
   direction: rtl;
+}
+
+button {
+  box-shadow: 0 3px 0 rgba(0,0,0,0.28);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.28);
 }

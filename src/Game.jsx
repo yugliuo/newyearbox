@@ -5,7 +5,7 @@ import WishCard from './WishCard.jsx'
 
 const btn = (primary, color) => ({
   padding: '10px 20px', fontSize: 15, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-  borderRadius: 22, cursor: 'pointer', background: color || (primary ? '#e8b23d' : 'rgba(255,235,215,0.15)'), color: primary && !color ? '#000' : '#fff',
+  borderRadius: 22, cursor: 'pointer', background: color || (primary ? '#d4af37' : 'rgba(255,235,215,0.15)'), color: primary && !color ? '#6e0710' : '#fff',
 })
 const box = { maxWidth: 440, margin: '0 auto', padding: '14px 16px', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 12 }
 const topBar = { display: 'flex', alignItems: 'center', gap: 10 }
@@ -173,7 +173,7 @@ export default function Game({ user, room, isOwner, onBack }) {
                 onClick={() => guess(m)}
                 style={{
                   ...btn(state.myGuess === m),
-                  border: state.myGuess === m ? '2px solid #e8b23d' : '2px solid transparent',
+                  border: state.myGuess === m ? '2px solid #d4af37' : '2px solid transparent',
                 }}
               >
                 {m}

@@ -4,7 +4,7 @@ import { api } from './api.js'
 const card = { background: 'rgba(255,235,215,0.1)', borderRadius: 16, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }
 const btn = (primary) => ({
   padding: '10px 18px', fontSize: 15, fontFamily: 'inherit', fontWeight: 700, border: 'none',
-  borderRadius: 20, cursor: 'pointer', background: primary ? '#e8b23d' : 'rgba(255,235,215,0.15)', color: primary ? '#000' : '#fff',
+  borderRadius: 20, cursor: 'pointer', background: primary ? '#d4af37' : 'rgba(255,235,215,0.15)', color: primary ? '#6e0710' : '#fff',
 })
 
 export default function Rooms({ user, joinCode, onJoinHandled, onOpen, onVault, onLogout }) {

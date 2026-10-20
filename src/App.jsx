@@ -8,7 +8,6 @@ import Admin from './Admin.jsx'
 import Vault from './Vault.jsx'
 import Test from './Test.jsx'
 import Snow from './Snow.jsx'
-import MusicToggle from './MusicToggle.jsx'
 
 const Pan3D = lazy(() => import('./Pan3D.jsx'))
 const Box3D = lazy(() => import('./Box3D.jsx'))
@@ -132,8 +131,7 @@ export default function App() {
   return (
     <>
       <Snow />
-      <MusicToggle />
-      {content}
+      <div style={{ position: 'relative', zIndex: 1 }}>{content}</div>
     </>
   )
 }
@@ -158,7 +156,7 @@ function Welcome({ user, joinCode, onStart, onLogout }) {
         style={{
           padding: '14px 36px', fontSize: '18px', fontFamily: 'inherit',
           fontWeight: 700, border: 'none', borderRadius: '30px',
-          background: '#e8b23d', cursor: 'pointer'
+          background: '#d4af37', cursor: 'pointer'
         }}>
         ابدأ
       </button>

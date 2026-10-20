@@ -9,7 +9,7 @@ const CHUNK = 8 * 1024 * 1024 // حجم كل قطعة أثناء الرفع
 const card = { background: 'rgba(255,235,215,0.1)', borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }
 const btn = (primary, danger) => ({
   padding: '9px 16px', fontSize: 14, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 20, cursor: 'pointer',
-  background: danger ? '#c23a3a' : primary ? '#e8b23d' : 'rgba(255,235,215,0.15)', color: primary && !danger ? '#000' : '#fff',
+  background: danger ? '#c23a3a' : primary ? '#d4af37' : 'rgba(255,235,215,0.15)', color: primary && !danger ? '#6e0710' : '#fff',
 })
 
 function fmtMB(bytes) {
@@ -183,7 +183,7 @@ export default function VideoBox({ user }) {
       {progress !== null && (
         <div>
           <div style={{ height: 10, borderRadius: 6, background: 'rgba(255,235,215,0.15)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: progress + '%', background: '#e8b23d', transition: 'width .2s' }} />
+            <div style={{ height: '100%', width: progress + '%', background: '#d4af37', transition: 'width .2s' }} />
           </div>
           <div style={{ fontSize: 12, marginTop: 4, textAlign: 'center' }}>
             {progress < 15 ? 'جارٍ القفل...' : progress < 100 ? 'جارٍ الرفع... ' + progress + '%' : '✅ تم الحفظ'}

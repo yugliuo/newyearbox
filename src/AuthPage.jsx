@@ -29,8 +29,8 @@ const input = {
 const btn = (primary) => ({
   width: '100%', padding: '14px', fontSize: 18, fontFamily: 'inherit', fontWeight: 700,
   border: 'none', borderRadius: 30, cursor: 'pointer',
-  background: primary ? '#e8b23d' : 'rgba(255,235,215,0.15)',
-  color: primary ? '#000' : '#fff',
+  background: primary ? '#d4af37' : 'rgba(255,235,215,0.15)',
+  color: primary ? '#6e0710' : '#fff',
 })
 
 function Avatar({ value, size }) {
@@ -115,7 +115,7 @@ export default function Auth({ onDone, onBack }) {
               {EMOJIS.map((e) => (
                 <button key={e} onClick={() => setAvatar(e)} style={{
                   width: 44, height: 44, fontSize: 24, borderRadius: '50%', cursor: 'pointer',
-                  border: avatar === e ? '3px solid #e8b23d' : '2px solid transparent',
+                  border: avatar === e ? '3px solid #d4af37' : '2px solid transparent',
                   background: 'rgba(255,235,215,0.12)',
                 }}>{e}</button>
               ))}
@@ -131,7 +131,7 @@ export default function Auth({ onDone, onBack }) {
         </button>
 
         {mode === 'login' && (
-          <button onClick={forgot} disabled={busy} style={{ background: 'none', border: 'none', color: '#e8b23d', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer' }}>
+          <button onClick={forgot} disabled={busy} style={{ background: 'none', border: 'none', color: '#d4af37', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer' }}>
             نسيت كلمة المرور؟
           </button>
         )}

@@ -163,7 +163,7 @@ export default function Vault({ user, onBack }) {
       <VideoBox user={user} />
       <button
         onClick={done}
-        style={{ padding: 12, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 24, cursor: 'pointer', background: '#e8b23d', color: '#000' }}
+        style={{ padding: 12, fontSize: 16, fontFamily: 'inherit', fontWeight: 700, border: 'none', borderRadius: 24, cursor: 'pointer', background: '#d4af37', color: '#6e0710' }}
       >
         تم ✓
       </button>
