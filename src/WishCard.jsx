@@ -1,3 +1,5 @@
+import { StickerGlyph } from './stickers.jsx'
+
 // عرض ورقة أمنية (بلا أي تعديل) من نفس بيانات المحرر، تُستخدم في غرفة اللعب فقط
 const TORN = (() => {
   const rnd = (i) => Math.abs((Math.sin(i * 91.7) * 1000) % 1)
@@ -70,8 +72,8 @@ export default function WishCard({ snap, height }) {
         {snap.text}
       </div>
       {(snap.stickers || []).map((s) => (
-        <div key={s.id} style={{ position: 'absolute', left: s.x + '%', top: s.y + '%', transform: 'translate(-50%,-50%)', fontSize: s.size, lineHeight: 1 }}>
-          {s.e}
+        <div key={s.id} style={{ position: 'absolute', left: s.x + '%', top: s.y + '%', transform: 'translate(-50%,-50%)', lineHeight: 1 }}>
+          <StickerGlyph value={s.e} size={s.size} />
         </div>
       ))}
     </div>

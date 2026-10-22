@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { UNLOCK_AT } from './lock.js'
+import Icon from './Icon.jsx'
 import Game from './Game.jsx'
 
 const TINTS = [['--bg-accent', '--text-accent'], ['--bg-success', '--text-success'], ['--bg-warning', '--text-warning'], ['--bg-pro', '--text-pro'], ['--bg-danger', '--text-danger']]
@@ -198,8 +199,8 @@ export default function Hall({ user, room, justDone, onBack, onEdit }) {
         <button onClick={onBack} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: 'rgba(255,235,215,0.18)', color: '#fff' }}>→ غرفي</button>
         <span style={{ fontWeight: 700, fontSize: 17 }}>{room.name}</span>
         {room.isOwner && (
-          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, background: manage ? '#d4af37' : 'rgba(255,235,215,0.18)', color: manage ? '#6e0710' : '#fff', marginRight: 'auto' }}>
-            ⚙️ إدارة الغرفة
+          <button onClick={toggleManage} style={{ ...smallBtn, padding: '6px 14px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: manage ? '#d4af37' : 'rgba(255,235,215,0.18)', color: manage ? '#6e0710' : '#fff', marginRight: 'auto' }}>
+            <Icon name="gear" size={16} /> إدارة الغرفة
           </button>
         )}
       </div>

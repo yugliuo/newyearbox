@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { encryptDraft, decryptDraft } from './crypt.js'
 import { api } from './api.js'
 import { lockText } from './lock.js'
+import { STICKER_DEFS, StickerGlyph } from './stickers.jsx'
 
 const SHAPES = [['torn', 'قصاصة ممزقة'], ['sticky', 'ملاحظة لاصقة'], ['notebook', 'ورقة دفتر'], ['polaroid', 'بولارويد'], ['old', 'ورقة قديمة']]
 const DECOS = [['none', 'بدون'], ['tape', 'شريط لاصق'], ['stitch', 'خياطة'], ['stars', 'نجوم'], ['wave', 'موجات']]
@@ -9,7 +10,6 @@ const FONTS = [['Cairo', 'القاهرة'], ['Tajawal', 'تجوّل'], ['Amiri',
 const PAPER_COLORS = ['#ffffff', '#fff3a0', '#ffc8dd', '#bde0fe', '#c7f9cc', '#ffd6a5', '#e0bbff', '#f1e3c8', '#ffb3b3', '#d9d9d9']
 const DECO_COLORS = ['#d4af37', '#ff4d6d', '#4cc9f0', '#80ed99', '#b388ff', '#ffffff', '#ff9f1c', '#2ec4b6', '#f72585', '#222222']
 const FONT_COLORS = ['#222222', '#ffffff', '#b00020', '#0b3d91', '#0a6e31', '#6a1b9a', '#e65100', '#000000', '#795548', '#c2185b']
-const STICKERS = ['⭐', '❤️', '🎉', '🎆', '🍳', '🌙', '🎁', '✨', '🥳', '🕊️', '🌹', '☕']
 const INSETS = { torn: '20px 24px', sticky: '20px 20px 44px', notebook: '12px 20px 12px 44px', polaroid: '30px 30px 74px', old: '28px 32px' }
 
 const nowMs = () => Date.now()
@@ -216,10 +216,10 @@ export default function Editor({ user, room, onBack, onFinished }) {
     }
   }
 
-  function addSticker(emoji) {
+  function addSticker(name) {
     if (stickers.length >= 12) return
     const id = stickers.reduce((m, st) => Math.max(m, st.id), 0) + 1
-    setStickers([...stickers, { id, e: emoji, x: 50, y: 50, size: 44 }])
+    setStickers([...stickers, { id, e: name, x: 50, y: 50, size: 44 }])
     setSel(id)
   }
   function update(id, patch) {
@@ -236,9 +236,19 @@ export default function Editor({ user, room, onBack, onFinished }) {
   function onMove(ev, s) {
     if (!dragging.current) return
     const rect = boxRef.current.getBoundingClientRect()
-    const x = Math.min(100, Math.max(0, ((ev.clientX - rect.left) / rect.width) * 100))
-    const y = Math.min(100, Math.max(0, ((ev.clientY - rect.top) / rect.height) * 100))
-    update(s.id, { x, y })
+    let px = Math.min(rect.width, Math.max(0, ev.clientX - rect.left))
+    let py = Math.min(rect.height, Math.max(0, ev.clientY - rect.top))
+    if (shape === 'sticky') {
+      // يبقي الستيكر بعيداً عن الزاوية المطوية أسفل اليمين (نفس حجم القصّ في شكل الورقة)
+      const fold = 36
+      const cornerDist = rect.width - px + (rect.height - py)
+      if (cornerDist < fold) {
+        const push = (fold - cornerDist) / 2
+        px -= push
+        py -= push
+      }
+    }
+    update(s.id, { x: (px / rect.width) * 100, y: (py / rect.height) * 100 })
   }
   function onUp() {
     dragging.current = false
@@ -301,8 +311,10 @@ export default function Editor({ user, room, onBack, onFinished }) {
   if (tab === 'stickers') {
     panel = (
       <>
-        {STICKERS.map((emoji) => (
-          <button key={emoji} style={{ ...chip(false), fontSize: 28, padding: '6px 12px' }} onClick={() => addSticker(emoji)}>{emoji}</button>
+        {STICKER_DEFS.map((d) => (
+          <button key={d.name} aria-label={d.label} title={d.label} style={{ ...chip(false), padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => addSticker(d.name)}>
+            <StickerGlyph value={d.name} size={30} />
+          </button>
         ))}
         <div style={{ width: '100%', fontSize: 13, opacity: 0.8, margin: '6px 4px' }}>
           اضغط ستيكراً لإضافته ثم اسحبه فوق الورقة
@@ -406,7 +418,7 @@ export default function Editor({ user, room, onBack, onFinished }) {
                 outline: sel === s.id ? '2px dashed #fff' : 'none', borderRadius: 8,
               }}
             >
-              {s.e}
+              <StickerGlyph value={s.e} size={s.size} />
             </div>
           ))}
         </div>
