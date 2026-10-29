@@ -10,7 +10,6 @@ import Test from './Test.jsx'
 import Snow from './Snow.jsx'
 
 const Pan3D = lazy(() => import('./Pan3D.jsx'))
-const Box3D = lazy(() => import('./Box3D.jsx'))
 const GiftBoxPreview = lazy(() => import('./GiftBoxPreview.jsx'))
 import { api, getSession, setSession, clearSession } from './api.js'
 
@@ -93,13 +92,6 @@ export default function App() {
     return (
       <Suspense fallback={<div style={{ padding: 24 }}>جارٍ التحميل...</div>}>
         <Pan3D />
-      </Suspense>
-    )
-  }
-  if (window.location.hash === '#box') {
-    return (
-      <Suspense fallback={<div style={{ padding: 24 }}>جارٍ التحميل...</div>}>
-        <Box3D />
       </Suspense>
     )
   }
