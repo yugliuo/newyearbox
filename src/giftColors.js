@@ -1,16 +1,11 @@
-// توليد تدرجات فاتحة/غامقة من لون أساسي، لإعطاء إحساس عمق وإضاءة للرسم المسطح
-function clamp(v) { return Math.max(0, Math.min(255, v)) }
-export function shade(hex, percent) {
-  const n = parseInt(hex.slice(1), 16)
-  const r = clamp(((n >> 16) & 255) + Math.round(255 * percent))
-  const g = clamp(((n >> 8) & 255) + Math.round(255 * percent))
-  const b = clamp((n & 255) + Math.round(255 * percent))
-  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
-}
-
+// ألوان صندوق الهدية: box = لون الصندوق والغطاء، ribbon = الشريط والفيونكة
+// (إذا كان عندك ملف giftColors.js بنفس الاسم فاحتفظ بملفك، يكفي أن يحتوي كل عنصر على name و box و ribbon)
 export const BOX_PRESETS = [
-  { name: 'أحمر وذهبي', box: '#c8102e', ribbon: '#e3b23c' },
-  { name: 'أخضر وأحمر', box: '#1f6b40', ribbon: '#d4172f' },
-  { name: 'أبيض وذهبي', box: '#f2ece1', ribbon: '#c9a23c' },
-  { name: 'عنّابي وأخضر', box: '#5a0f1c', ribbon: '#2f8f5b' },
+  { name: 'كلاسيكي', box: '#f3f0ec', ribbon: '#d8212f' },
+  { name: 'أحمر', box: '#b5121b', ribbon: '#ff5a62' },
+  { name: 'ذهبي', box: '#262633', ribbon: '#f0b429' },
+  { name: 'زمردي', box: '#0f7a4f', ribbon: '#f5d76e' },
+  { name: 'أزرق', box: '#2457d6', ribbon: '#e4ebf8' },
+  { name: 'بنفسجي', box: '#7b3fc4', ribbon: '#ff7eb6' },
+  { name: 'وردي', box: '#ff8fb1', ribbon: '#ffffff' },
 ]
