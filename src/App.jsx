@@ -11,7 +11,7 @@ import Snow from './Snow.jsx'
 
 const Pan3D = lazy(() => import('./Pan3D.jsx'))
 const Box3D = lazy(() => import('./Box3D.jsx'))
-const GiftBox3D = lazy(() => import('./GiftBox3D.jsx'))
+const GiftBoxPreview = lazy(() => import('./GiftBoxPreview.jsx'))
 import { api, getSession, setSession, clearSession } from './api.js'
 
 function readJoinCode() {
@@ -106,7 +106,7 @@ export default function App() {
   if (window.location.hash === '#gift') {
     return (
       <Suspense fallback={<div style={{ padding: 24 }}>جارٍ التحميل...</div>}>
-        <GiftBox3D />
+        <GiftBoxPreview />
       </Suspense>
     )
   }
